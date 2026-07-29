@@ -1,4 +1,6 @@
 // index.js
+const fs = require('fs');
+const path = require('path');
 const { startWhatsApp, getLatestQR } = require('./src/services/whatsappService.js');
 const settingsPage = require('./src/pages/settings.js');
 const express = require('express');
@@ -93,7 +95,22 @@ app.get('/settings', async (req, res) => {
     }
 });
 
+// 🟢 ISBEDELKA 2: Halkan waxaan ku darnay in galka (folder) la tirtiro markuu qofku Logout dhaho
 app.get('/logout', (req, res) => {
+    if (req.session.storeData) {
+        const storeId = req.session.storeData.id;
+        
+        // Soo qabo meesha uu ku yaallo folder-ka user-kan
+        const authFolder = path.join(__dirname, `auth_info/store_${storeId}`);
+
+        // Haddii folder-kaasi jiro, si buuxda u tirtir
+        if (fs.existsSync(authFolder)) {
+            fs.rmSync(authFolder, { recursive: true, force: true });
+            console.log(`🗑️ Galka WhatsApp (store_${storeId}) si guul leh ayaa loo tirtiray maxaa yeelay qofka ayaa Logout taabtay.`);
+        }
+    }
+    
+    // Nidaamka ka saar qofka (Session destroy)
     req.session.destroy();
     res.redirect('/login');
 });
@@ -253,7 +270,12 @@ app.post('/api/whatsapp/start', (req, res) => {
     }
     
     const storeId = req.session.storeData.id;
-    startWhatsApp(storeId); // Halkan ayuu bot-ku iska kicinayaa
+    
+    // 🟢 ISBEDDELKA KALIYA EE LA KU DARI YAHAY:
+    // Waxaa ku darnay .catch() si server-ku uusan u dhacin haddii Baileys uu dib u dhaco ama error bixiyo
+    startWhatsApp(storeId).catch(err => {
+        console.error(`❌ Cilad ayaa ka dhacday kicinita Bot-ka dukaanka ${storeId}:`, err.message || err);
+    });
     
     res.send({ status: 'started' });
 });

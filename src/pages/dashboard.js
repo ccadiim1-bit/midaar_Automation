@@ -82,16 +82,39 @@ function dashboardPage(products = []) {
                     </div>
                 </header>
 
-                <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg mb-8">
-                    <h3 class="text-lg font-semibold text-white mb-4">Kudar Alaab Cusub</h3>
-                    <form action="/api/products/add" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <input type="text" name="product_name" placeholder="Magaca Alaabta (Tusaale: Kabo)" required class="md:col-span-1 bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
-                        <input type="text" name="product_price" placeholder="Qiimaha (Tusaale: $25)" required class="md:col-span-1 bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
-                        <input type="text" name="product_desc" placeholder="Faahfaahin gaaban (Tusaale: Kabo orodka...)" required class="md:col-span-1 bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
-                        <button type="submit" class="md:col-span-1 bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-xl text-sm font-semibold transition">
-                            ➕ Kudar Alaabta
-                        </button>
-                    </form>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                    <!-- QAYBTA HAL ALAAB LAGU DARO -->
+                    <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg">
+                        <h3 class="text-lg font-semibold text-white mb-4">➕ Kudar Alaab Cusub (Hal hal)</h3>
+                        <form action="/api/products/add" method="POST" class="flex flex-col gap-4">
+                            <input type="text" name="product_name" placeholder="Magaca Alaabta (Tusaale: Kabo)" required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <input type="text" name="product_price" placeholder="Qiimaha (Tusaale: $25)" required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <input type="text" name="product_desc" placeholder="Faahfaahin gaaban (Tusaale: Kabo orodka...)" required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-xl text-sm font-semibold transition">
+                                Kudar Alaabta
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 🟢 QAYBTA CUSUB EE EXCEL/CSV LAGU SOO GELINAYO -->
+                    <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-white mb-2">📤 Soo Geli Alaab Badan (Excel / CSV)</h3>
+                            <p class="text-slate-400 text-sm mb-4">
+                                Faylku waa inuu leeyahay saddexdan tiir (Columns): <br>
+                                <b class="text-purple-400">product_name</b>, <b class="text-purple-400">product_price</b>, <b class="text-purple-400">product_desc</b>
+                            </p>
+                        </div>
+                        <form action="/api/products/upload" method="POST" enctype="multipart/form-data" class="flex flex-col gap-4 mt-auto">
+                            <input type="file" name="excelFile" accept=".csv, .xlsx, .xls" required 
+                                class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-2 text-white focus:outline-none text-sm 
+                                file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold 
+                                file:bg-purple-600/20 file:text-purple-400 hover:file:bg-purple-600/30 cursor-pointer">
+                            <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl text-sm font-semibold transition">
+                                Soo Geli Faylka
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="bg-[#140827] rounded-2xl border border-purple-900/40 shadow-lg overflow-hidden">

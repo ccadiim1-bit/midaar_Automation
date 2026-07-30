@@ -1,7 +1,14 @@
 // index.js
 const fs = require('fs');
 const path = require('path');
-const { startWhatsApp, getLatestQR } = require('./src/services/whatsappService.js');
+
+// 🟢 KUSOO DARISTA LIBRARY-YADA EXCEL UPLOAD-KA
+const multer = require('multer');
+const xlsx = require('xlsx');
+const upload = multer({ dest: 'uploads/' }); // Galka kumeel gaarka ah ee faylasha la soo geliyo
+
+// 🟢 ISBEDELKA: Waxaan halkan ku soo darnay stopWhatsApp
+const { startWhatsApp, getLatestQR, stopWhatsApp } = require('./src/services/whatsappService.js');
 const settingsPage = require('./src/pages/settings.js');
 const express = require('express');
 const session = require('express-session'); 
@@ -65,7 +72,7 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// SOO JIIDISTA XOGTA BOGGA SETTINGS-KA (CUSUB)
+// SOO JIIDISTA XOGTA BOGGA SETTINGS-KA
 app.get('/settings', async (req, res) => {
     if (!req.session.isLoggedIn) {
         return res.redirect('/login');
@@ -82,7 +89,7 @@ app.get('/settings', async (req, res) => {
 
         if (error) {
             console.error("Cilad dhanka soo jiidista xogta Settings-ka ah:", error.message);
-            return res.send(settingsPage(req.session.storeData)); // Isticmaal xogtii hore ee keydsanayd haddii cilad dhacdo
+            return res.send(settingsPage(req.session.storeData)); 
         }
 
         // Cusboonaysii xusuusta nidaamka oo u dir bogga
@@ -95,19 +102,13 @@ app.get('/settings', async (req, res) => {
     }
 });
 
-// 🟢 ISBEDELKA 2: Halkan waxaan ku darnay in galka (folder) la tirtiro markuu qofku Logout dhaho
+// 🟢 ISBEDELKA: Halkan waxaan ka saarnay tirtiristii Galka (Folder-ka)
 app.get('/logout', (req, res) => {
     if (req.session.storeData) {
         const storeId = req.session.storeData.id;
         
-        // Soo qabo meesha uu ku yaallo folder-ka user-kan
-        const authFolder = path.join(__dirname, `auth_info/store_${storeId}`);
-
-        // Haddii folder-kaasi jiro, si buuxda u tirtir
-        if (fs.existsSync(authFolder)) {
-            fs.rmSync(authFolder, { recursive: true, force: true });
-            console.log(`🗑️ Galka WhatsApp (store_${storeId}) si guul leh ayaa loo tirtiray maxaa yeelay qofka ayaa Logout taabtay.`);
-        }
+        // 🟢 KALIYA HAKI SHAQADA BOT-KA (Session-kalama tirtirayo)
+        stopWhatsApp(storeId);
     }
     
     // Nidaamka ka saar qofka (Session destroy)
@@ -151,6 +152,10 @@ app.post('/api/login', async (req, res) => {
         req.session.storeData = data;
 
         console.log(`✅ Gelitaan guulaystay: ${data.store_name}`);
+        
+        // 🟢 ISBEDELKA: KICI BOT-KA ISLA MARKA UU QOFKA SOO GALO (LOGIN)
+        startWhatsApp(data.id).catch(err => console.error("Cilad kicinta tooska ah ee Login:", err));
+
         res.redirect('/dashboard'); 
 
     } catch (err) {
@@ -158,7 +163,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// 2. KUDARISTA ALAABTA CUSUB EE DB-KA
+// 2. KUDARISTA ALAABTA CUSUB EE DB-KA (HAL-HAL)
 app.post('/api/products/add', async (req, res) => {
     if (!req.session.isLoggedIn || !req.session.storeData) {
         return res.redirect('/login');
@@ -193,6 +198,56 @@ app.post('/api/products/add', async (req, res) => {
     }
 });
 
+// 🟢 SHAQADA CUSUB: KUDARISTA ALAABTA BADAN (EXCEL/CSV UPLOAD)
+app.post('/api/products/upload', upload.single('excelFile'), async (req, res) => {
+    if (!req.session.isLoggedIn || !req.session.storeData) {
+        return res.redirect('/login');
+    }
+
+    try {
+        const storeId = req.session.storeData.id;
+        const file = req.file;
+
+        if (!file) {
+            return res.send("Fadlan soo geli fayl.");
+        }
+
+        // Akhri faylka Excel ama CSV
+        const workbook = xlsx.readFile(file.path);
+        const sheetName = workbook.SheetNames[0]; // Qaado Shaxda ugu horreysa (Sheet 1)
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        // Habee xogta si ay ula jaanqaado Database-ka Supabase
+        const productsToInsert = sheetData.map(row => ({
+            store_id: storeId,
+            product_name: row.product_name || row.Magaca || 'Magac La\'aan',
+            product_price: row.product_price || row.Qiimaha || '$0',
+            product_desc: row.product_desc || row.Faahfaahin || ''
+        }));
+
+        // Geli Database-ka (Supabase)
+        if (productsToInsert.length > 0) {
+            const { error } = await supabase.from('products').insert(productsToInsert);
+            if (error) {
+                console.error("⚠️ Khalad geynta Excel-ka Supabase:", error.message);
+                return res.send("Khalad ayaa dhacay markii alaabta la keydinayay.");
+            }
+        }
+
+        // Tirtir faylkii kumeel gaarka ahaa ee server-ka soo galay si uusan meel u cuni
+        if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+        }
+
+        console.log(`✅ ${productsToInsert.length} alaab ayaa laga soo geliyay Excel-ka oo DB-ka la geeyay.`);
+        res.redirect('/dashboard'); 
+
+    } catch (err) {
+        console.error("Cilad Upload-ka Excel-ka ah:", err);
+        res.status(500).send("Cilad ayaa dhacday markii faylka la akhrinayay. Hubi inuu yahay Excel sax ah.");
+    }
+});
+
 // 3. TIRTIRISTA ALAABTA EE DB-KA
 app.post('/api/products/delete', async (req, res) => {
     if (!req.session.isLoggedIn || !req.session.storeData) {
@@ -207,7 +262,7 @@ app.post('/api/products/delete', async (req, res) => {
             .from('products')
             .delete()
             .eq('id', productId)
-            .eq('store_id', storeId); // Hubi in alaabta ay dukaankaas leedahay
+            .eq('store_id', storeId); 
 
         if (error) {
             console.error("⚠️ Khalad tirtirista xogta Supabase:", error.message);
@@ -223,7 +278,7 @@ app.post('/api/products/delete', async (req, res) => {
     }
 });
 
-// QABASHADA IYO KEYDINTA XOGTA MASKAXDA BOT-KA (SETTINGS) (CUSUB)
+// QABASHADA IYO KEYDINTA XOGTA MASKAXDA BOT-KA (SETTINGS) 
 app.post('/api/settings/save', async (req, res) => {
     if (!req.session.isLoggedIn || !req.session.storeData) {
         return res.redirect('/login');
@@ -271,8 +326,6 @@ app.post('/api/whatsapp/start', (req, res) => {
     
     const storeId = req.session.storeData.id;
     
-    // 🟢 ISBEDDELKA KALIYA EE LA KU DARI YAHAY:
-    // Waxaa ku darnay .catch() si server-ku uusan u dhacin haddii Baileys uu dib u dhaco ama error bixiyo
     startWhatsApp(storeId).catch(err => {
         console.error(`❌ Cilad ayaa ka dhacday kicinita Bot-ka dukaanka ${storeId}:`, err.message || err);
     });

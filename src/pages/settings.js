@@ -59,16 +59,14 @@ function settingsPage(storeData = {}) {
                             </select>
                         </div>
 
-                        <!-- TAB 1: Baileys (QR Code) - HADA WAA NOOL YAHAY -->
+                        <!-- TAB 1: Baileys (QR Code) -->
                         <div id="baileys-section" class="flex flex-col items-center border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center mb-4">Taabo badhanka hoose si aad u soo saarto QR Code-ka dhabta ah, kadibna iskaan garee.</p>
+                            <p class="text-slate-400 text-xs text-center mb-4" id="qr-instruction">Taabo badhanka hoose si aad u soo saarto QR Code-ka dhabta ah, kadibna iskaan garee.</p>
                             
-                            <div class="bg-white p-2 rounded-xl mb-4 w-48 h-48 flex items-center justify-center relative overflow-hidden">
-                                <!-- Qoraal soo baxaya inta sawirka la sugayo -->
+                            <div class="bg-white p-2 rounded-xl mb-4 w-48 h-48 flex items-center justify-center relative overflow-hidden" id="qr-container">
                                 <div id="qr-loading" class="text-slate-800 text-sm text-center font-bold">
                                     QR Code ma jiro<br><span class="text-xs font-normal">Taabo 'Soo saar QR'</span>
                                 </div>
-                                <!-- Sawirka halkan ayaa si toos ah loo gelin doonaa -->
                                 <img id="qr-image" src="" alt="QR Code" class="w-full h-full object-contain hidden">
                             </div>
 
@@ -77,12 +75,10 @@ function settingsPage(storeData = {}) {
                             </button>
                         </div>
 
-                        <!-- TAB 2: Green API -->
+                        <!-- TAB 2 & 3: API kale -->
                         <div id="greenapi-section" class="hidden border-t border-purple-900/40 pt-4">
                             <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR.</p>
                         </div>
-
-                        <!-- TAB 3: Meta API (Official) -->
                         <div id="meta-section" class="hidden border-t border-purple-900/40 pt-4">
                             <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR.</p>
                         </div>
@@ -124,15 +120,66 @@ function settingsPage(storeData = {}) {
                     document.getElementById('meta-section').style.display = selector === 'meta' ? 'block' : 'none';
                 }
 
-                // SHAQADA CUSUB EE QR CODE-KA (POLLING)
                 let qrInterval;
+
+                // 🟢 QAYBTAN CUSUB WAXAY SI TOOS AH U HUBINAYSAA MARKA BOGGA LA FURO
+                document.addEventListener("DOMContentLoaded", () => {
+                    fetch('/api/whatsapp/qr')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.qrImage === 'connected') {
+                                // Haddii uu horay u xirnaa
+                                showConnectedState();
+                            } else if (data.qrImage) {
+                                // Haddii QR la soo saaray balse aan la iskaan garayn
+                                showQRState(data.qrImage);
+                                qrInterval = setInterval(checkQRStatus, 2000);
+                            }
+                        })
+                        .catch(err => console.log("Lama hubin karin xaaladda QR-ka."));
+                });
+
+                // 🟢 FUNCTION: MUUJI INUU KU XIRAN YAHAY (BUTTON-KA BEDI)
+                function showConnectedState() {
+                    const loadingText = document.getElementById('qr-loading');
+                    const qrImage = document.getElementById('qr-image');
+                    const btn = document.getElementById('btn-scan');
+                    const instruction = document.getElementById('qr-instruction');
+
+                    instruction.innerHTML = "Bot-kaagu wuxuu diyaar u yahay inuu u adeego macaamiishaada.";
+                    
+                    loadingText.innerHTML = "✅<br>WhatsApp waa<br>ku xiran yahay!";
+                    loadingText.classList.remove('hidden', 'text-slate-800');
+                    loadingText.classList.add('text-emerald-600', 'text-lg', 'font-black');
+                    qrImage.classList.add('hidden');
+                    
+                    btn.innerText = "Is-xirka waa guuleystay 🎉";
+                    btn.disabled = true; // Taabashada ka jooji
+                    btn.classList.replace('bg-purple-600', 'bg-emerald-600');
+                    btn.classList.replace('hover:bg-purple-500', 'hover:bg-emerald-600');
+                    btn.classList.add('cursor-not-allowed', 'opacity-80');
+                }
+
+                // 🟢 FUNCTION: MUUJI SAWIRKA QR-KA OON BADHANKA LAGA TAABAN KARIN
+                function showQRState(qrImgSrc) {
+                    const loadingText = document.getElementById('qr-loading');
+                    const qrImage = document.getElementById('qr-image');
+                    const btn = document.getElementById('btn-scan');
+
+                    qrImage.src = qrImgSrc;
+                    qrImage.classList.remove('hidden');
+                    loadingText.classList.add('hidden');
+                    
+                    btn.innerText = "QR Waa Diyaar - Iskaan garee!";
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
 
                 function startQRScan() {
                     const loadingText = document.getElementById('qr-loading');
                     const qrImage = document.getElementById('qr-image');
                     const btn = document.getElementById('btn-scan');
 
-                    // 1. Beddel Muuqaalka inta la sugayo Server-ka
                     loadingText.innerHTML = "Wuxuu soo saarayaa QR... ⏳";
                     loadingText.classList.remove('hidden');
                     qrImage.classList.add('hidden');
@@ -140,12 +187,10 @@ function settingsPage(storeData = {}) {
                     btn.disabled = true;
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-                    // 2. Ku dhufo Server-ka si uu Baileys u kiciyo
                     fetch('/api/whatsapp/start', { method: 'POST' })
                         .then(res => res.json())
                         .then(data => {
                             if (data.status === 'started') {
-                                // 3. Haddii uu kaco, 2-dii ilbiriqsiba mar soo hubi sawirka
                                 qrInterval = setInterval(checkQRStatus, 2000);
                             }
                         })
@@ -161,30 +206,11 @@ function settingsPage(storeData = {}) {
                     fetch('/api/whatsapp/qr')
                         .then(res => res.json())
                         .then(data => {
-                            const qrImgSrc = data.qrImage;
-                            const loadingText = document.getElementById('qr-loading');
-                            const qrImage = document.getElementById('qr-image');
-                            const btn = document.getElementById('btn-scan');
-
-                            if (qrImgSrc === 'connected') {
-                                // BOT-KA WAA LA ISKU XIRAY!
-                                clearInterval(qrInterval); // Jooji hubinta badan
-                                loadingText.innerHTML = "✅ WhatsApp waa ku xiran yahay!";
-                                loadingText.classList.remove('hidden', 'text-slate-800');
-                                loadingText.classList.add('text-green-600', 'text-lg');
-                                qrImage.classList.add('hidden');
-                                
-                                btn.innerText = "Is-xirka waa guuleystay 🎉";
-                                btn.classList.replace('bg-purple-600', 'bg-green-600');
-                                btn.classList.replace('hover:bg-purple-500', 'hover:bg-green-500');
-                            } else if (qrImgSrc) {
-                                // QR CODE CUSUB AYAA SOO BAXAY
-                                qrImage.src = qrImgSrc;
-                                qrImage.classList.remove('hidden');
-                                loadingText.classList.add('hidden');
-                                
-                                btn.innerText = "QR Waa Diyaar - Iskaan garee!";
-                                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                            if (data.qrImage === 'connected') {
+                                clearInterval(qrInterval); 
+                                showConnectedState();
+                            } else if (data.qrImage) {
+                                showQRState(data.qrImage);
                             }
                         });
                 }

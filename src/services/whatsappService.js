@@ -12,9 +12,12 @@ const { generateAIResponse } = require('./aiService');
 
 // Kaydka Bot-yada shaqaynaya si aysan isku dul kicin
 const activeSockets = {}; 
+const stoppedBots = {}; // 🟢 KUDAR KAYDKAN CUSUB SI LOO OGAADO BOTS-KA LA HAKIYAY
 let qrCodeImage = ''; 
 
 async function startWhatsApp(storeId) {
+    stoppedBots[storeId] = false; // 🟢 MARKASTA OO LA KICIYO, HAKINTA KA QAAD
+
     // 🟢 HUBI IN BOT-KU HORAY U KACSAN YAHAY
     if (activeSockets[storeId]) {
         console.log(`⚠️ Bot-ka dukaanka (ID: ${storeId}) horay ayuu u shaqeynayay!`);
@@ -23,18 +26,27 @@ async function startWhatsApp(storeId) {
 
     console.log(`⏳ Waxaan isku xirayaa WhatsApp (Local Folder) - Store ID: ${storeId}...`);
 
+    // 🟢 XALKA 1: Si qasab ah u nadiifi QR-kii hore mar kasta oo la isku dayo isku-xir cusub.
+    qrCodeImage = ''; 
+
     const authFolderPath = path.join(__dirname, `../../auth_info/store_${storeId}`);
+    
+    // Samee galka haddii uusan horay u jirin si uusan server-ku u dhicin
+    if (!fs.existsSync(authFolderPath)) {
+        fs.mkdirSync(authFolderPath, { recursive: true });
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(authFolderPath);
 
-    // 🟢 SOO JIID VERSION-KA UGU DAMBEEYAY EE WHATSAPP WEB
+    // SOO JIID VERSION-KA UGU DAMBEEYAY EE WHATSAPP WEB
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`ℹ️ WhatsApp Web Version: ${version.join('.')} (Is Latest: ${isLatest})`);
 
     const sock = makeWASocket({
-        version, // Waxay ka hortagtaa Connection Failure/Noise Handshake error
+        version, 
         auth: state,
         printQRInTerminal: false,
-        browser: Browsers.ubuntu('Chrome'), // Qaabka rasmiga ah ee Baileys
+        browser: Browsers.ubuntu('Chrome'), 
         syncFullHistory: false,
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
@@ -57,18 +69,31 @@ async function startWhatsApp(storeId) {
             delete activeSockets[storeId]; 
             
             const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             
-            if (shouldReconnect) {
+            // 🟢 ISBEDELKA WEYN: KALA SAAR LOGOUT-KA BOGGA (WEB) IYO KAN TELEFOONKA (MOBILE)
+            if (statusCode === DisconnectReason.loggedOut) {
+                console.log('⚠️ Waa lagaa saaray WhatsApp (Mobile-ka ayaa laga xiray). Shaqadii Bot-ka waa la joojinayaa...');
+                qrCodeImage = ''; 
+                try { sock.ws.close(); } catch (err) {}
+                sock.ev.removeAllListeners();
+                
+                setTimeout(() => {
+                    if (fs.existsSync(authFolderPath)) {
+                        fs.rmSync(authFolderPath, { recursive: true, force: true });
+                        console.log(`🗑️ Galka WhatsApp (${storeId}) waa la tirtiray maxaa yeelay telefoonka ayaa laga gooyay.`);
+                    }
+                }, 2000);
+            } else if (stoppedBots[storeId]) {
+                // 🟢 TANI WAA MARKA QOFKU UU "LOGOUT" KAGA DHAHO BOGGA DASHBOARD-KA
+                console.log(`⏸️ Bot-ka (Store ${storeId}) waa la hakiyay. Galkii (Session) waa la xafiday.`);
+                qrCodeImage = ''; 
+                sock.ev.removeAllListeners(); // Jooji dhagaysiga event-yada
+            } else {
+                // 🟢 HADDII KHADKA GO'O AMA CILAD TIMAADO, DIB U KICI
                 console.log('❌ Xiriirkii WhatsApp waa go\'ay. Dib ayaa loo kicinayaa 5 ilbiriqsi kadib...');
                 setTimeout(() => {
                     startWhatsApp(storeId).catch(err => console.error("Cilad dib-u-kicinta:", err));
                 }, 5000); 
-            } else {
-                console.log('⚠️ Waa lagaa saaray WhatsApp (Logged Out). Session-ka waa la tirtirayaa...');
-                if (fs.existsSync(authFolderPath)) {
-                    fs.rmSync(authFolderPath, { recursive: true, force: true });
-                }
             }
         } else if (connection === 'open') {
             console.log(`✅ WhatsApp (Store ${storeId}) si guul leh ayuu u kacay!`);
@@ -76,21 +101,29 @@ async function startWhatsApp(storeId) {
         }
     });
 
-    sock.ev.on('creds.update', saveCreds);
+    // Ha isku dayin inuu keydiyo (saveCreds) haddii galka uusan jirin
+    sock.ev.on('creds.update', () => {
+        if (fs.existsSync(authFolderPath)) {
+            saveCreds();
+        }
+    });
 
     // ==========================================
     // 💬 DHEGEYSIGA FARIIMAHA IYO KU XIRIDA AI-GA
     // ==========================================
     sock.ev.on('messages.upsert', async (m) => {
+        // Jooji akhrinta fariimaha haddii nidaamka laga baxay
+        if (!activeSockets[storeId]) return;
+
         if (m.type !== 'notify') return;
 
         for (const msg of m.messages) {
-            // 1. Iska indho-tir fariimaha uu bot-ku isagu diro ama kuwa xogta aan wadanin
+            // Iska indho-tir fariimaha uu bot-ku isagu diro
             if (!msg.message || msg.key.fromMe) continue; 
 
             const senderNumber = msg.key.remoteJid;
             
-            // 2. 🛑 FILTER-KA: Si buuxda isaga indho-tir Groups-ka, Status-yada, iyo Newsletters-ka (Channels)
+            // FILTER: Iska indho-tir Groups, Status, iyo Newsletters
             if (
                 senderNumber.endsWith('@g.us') || 
                 senderNumber === 'status@broadcast' || 
@@ -113,7 +146,8 @@ async function startWhatsApp(storeId) {
                 try {
                     const aiResponse = await generateAIResponse(storeId, messageText);
 
-                    if (aiResponse) {
+                    // Hubi mar labaad in bot-ku weli nool yahay ka hor inta aan fariinta la dirin
+                    if (aiResponse && activeSockets[storeId]) {
                         await sock.sendMessage(senderNumber, { text: aiResponse });
                         console.log('✅ AI-gu wuxuu si guul leh u diray jawaabta!');
                     }
@@ -129,4 +163,17 @@ function getLatestQR() {
     return qrCodeImage;
 }
 
-module.exports = { startWhatsApp, getLatestQR };
+// 🟢 FUNCTION-KAN CUSUB WUXUU HAKINAYAA BOT-KA MARKA LAGA BAXO (LOGOUT)
+function stopWhatsApp(storeId) {
+    if (activeSockets[storeId]) {
+        console.log(`🛑 Joojinta shaqada dhagaysiga bot-ka dukaanka ${storeId}...`);
+        stoppedBots[storeId] = true; // Calamadee inaan dib loo kicin ilaa laga soo galo
+        try {
+            activeSockets[storeId].ws.close(); // Xir xiriirka (WebSocket) si uu dhagaysiga u joojiyo
+        } catch (err) {}
+        delete activeSockets[storeId];
+        console.log(`✅ Shaqadii Bot-ka waa la hakiyay. Galka QR-ka lama tirtirin.`);
+    }
+}
+
+module.exports = { startWhatsApp, getLatestQR, stopWhatsApp };

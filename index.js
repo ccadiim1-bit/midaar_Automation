@@ -1,4 +1,4 @@
-// index.js
+// index_2.js
 const fs = require('fs');
 const path = require('path');
 
@@ -198,7 +198,7 @@ app.post('/api/products/add', async (req, res) => {
     }
 });
 
-// 🟢 SHAQADA CUSUB: KUDARISTA ALAABTA BADAN (EXCEL/CSV UPLOAD)
+// 🟢 SHAQADA CUSUB OO LA HABEEYAY (SMART EXCEL PARSER)
 app.post('/api/products/upload', upload.single('excelFile'), async (req, res) => {
     if (!req.session.isLoggedIn || !req.session.storeData) {
         return res.redirect('/login');
@@ -214,16 +214,52 @@ app.post('/api/products/upload', upload.single('excelFile'), async (req, res) =>
 
         // Akhri faylka Excel ama CSV
         const workbook = xlsx.readFile(file.path);
-        const sheetName = workbook.SheetNames[0]; // Qaado Shaxda ugu horreysa (Sheet 1)
+        const sheetName = workbook.SheetNames[0]; 
         const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        // Habee xogta si ay ula jaanqaado Database-ka Supabase
-        const productsToInsert = sheetData.map(row => ({
-            store_id: storeId,
-            product_name: row.product_name || row.Magaca || 'Magac La\'aan',
-            product_price: row.product_price || row.Qiimaha || '$0',
-            product_desc: row.product_desc || row.Faahfaahin || ''
-        }));
+        // Habee xogta si caqli badan
+        const productsToInsert = sheetData.map(row => {
+            let productName = null;
+            let productPrice = null;
+            let productDesc = null;
+
+            // 1. Baaris ereyada la yaqaano ah:
+            for (let key in row) {
+                let val = row[key];
+                if (val === undefined || val === null || String(val).trim() === '') continue;
+                
+                // Ka nadiifi xuruufaha waaweyn iyo space-ka si loo baaro
+                let safeKey = key.toLowerCase().trim();
+
+                // Baarista Magaca Alaabta (Wax kasta oo suurtogal ah)
+                if (!productName && (safeKey.includes('name') || safeKey.includes('magac') || safeKey.includes('alaab') || safeKey.includes('item') || safeKey.includes('badeeco') || safeKey.includes('product') || safeKey.includes('title'))) {
+                    productName = String(val);
+                }
+                // Baarista Qiimaha (Wax kasta oo suurtogal ah)
+                else if (!productPrice && (safeKey.includes('price') || safeKey.includes('qiim') || safeKey.includes('lacag') || safeKey.includes('qarash') || safeKey.includes('cost') || safeKey.includes('amount'))) {
+                    productPrice = String(val);
+                }
+                // Baarista Faahfaahinta
+                else if (!productDesc && (safeKey.includes('desc') || safeKey.includes('faah') || safeKey.includes('detail') || safeKey.includes('info') || safeKey.includes('xog') || safeKey.includes('sharax'))) {
+                    productDesc = String(val);
+                }
+            }
+
+            // 2. HADDI UU WALI QABAN WAAyO: Waxay noqon kartaa in User-ka ciwaan kaba tegin. 
+            // Markaas waxaan qabanaynaa column-ka 1aad, 2aad, iyo 3aad.
+            const keys = Object.keys(row);
+            if (!productName && keys.length > 0) productName = String(row[keys[0]]);
+            if (!productPrice && keys.length > 1) productPrice = String(row[keys[1]]);
+            if (!productDesc && keys.length > 2) productDesc = String(row[keys[2]]);
+
+            // 3. Xogta U Dambaysa
+            return {
+                store_id: storeId,
+                product_name: productName || 'Magac La\'aan',
+                product_price: productPrice || '$0',
+                product_desc: productDesc || ''
+            };
+        });
 
         // Geli Database-ka (Supabase)
         if (productsToInsert.length > 0) {
@@ -234,7 +270,7 @@ app.post('/api/products/upload', upload.single('excelFile'), async (req, res) =>
             }
         }
 
-        // Tirtir faylkii kumeel gaarka ahaa ee server-ka soo galay si uusan meel u cuni
+        // Tirtir faylkii kumeel gaarka ahaa ee server-ka soo galay
         if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
         }
@@ -245,6 +281,40 @@ app.post('/api/products/upload', upload.single('excelFile'), async (req, res) =>
     } catch (err) {
         console.error("Cilad Upload-ka Excel-ka ah:", err);
         res.status(500).send("Cilad ayaa dhacday markii faylka la akhrinayay. Hubi inuu yahay Excel sax ah.");
+    }
+});
+
+// 🟢 SHAQADA CUSUB: BEDDELIDA ALAABTA (EDIT)
+app.post('/api/products/edit', async (req, res) => {
+    if (!req.session.isLoggedIn || !req.session.storeData) {
+        return res.redirect('/login');
+    }
+
+    const { productId, product_name, product_price, product_desc } = req.body;
+    const storeId = req.session.storeData.id;
+
+    try {
+        const { error } = await supabase
+            .from('products')
+            .update({ 
+                product_name: product_name, 
+                product_price: product_price, 
+                product_desc: product_desc 
+            })
+            .eq('id', productId)
+            .eq('store_id', storeId); 
+
+        if (error) {
+            console.error("⚠️ Khalad cusboonaysiinta xogta Supabase:", error.message);
+            return res.send("Khalad ayaa dhacay markii alaabta la beddelayay.");
+        }
+
+        console.log(`✏️ Alaabta ID: ${productId} waa la beddelay`);
+        res.redirect('/dashboard');
+
+    } catch (err) {
+        console.error("Cilad Server-ka ah:", err);
+        res.status(500).send("Cilad dhinaca server-ka ah ayaa dhacday.");
     }
 });
 
@@ -284,12 +354,10 @@ app.post('/api/settings/save', async (req, res) => {
         return res.redirect('/login');
     }
 
-    // 1. Soo qabo xogtii uu qofku foomka geliyay
     const { gemini_key, location, work_hours, system_prompt } = req.body;
     const storeId = req.session.storeData.id;
 
     try {
-        // 2. Ku cusboonaysii (Update) miiska 'stores' ee Supabase
         const { error } = await supabase
             .from('stores')
             .update({ 
@@ -306,8 +374,6 @@ app.post('/api/settings/save', async (req, res) => {
         }
 
         console.log(`✅ Xogta Settings-ka dukaanka waa la cusboonaysiiyay`);
-        
-        // 3. Dib ugu celi bogga Settings-ka
         res.redirect('/settings'); 
 
     } catch (err) {
@@ -318,7 +384,6 @@ app.post('/api/settings/save', async (req, res) => {
 
 // --- KICINTA WHATSAPP IYO QR CODE-KA ---
 
-// 1. Dariiqan wuxuu kicinayaa Baileys (Marka badhanka la taabto)
 app.post('/api/whatsapp/start', (req, res) => {
     if (!req.session.isLoggedIn || !req.session.storeData) {
         return res.status(401).send({ error: "Fadlan soo gal nidaamka" });
@@ -333,13 +398,12 @@ app.post('/api/whatsapp/start', (req, res) => {
     res.send({ status: 'started' });
 });
 
-// 2. Dariiqan wuxuu hubinayaa haddii QR-kii diyaar yahay iyo inuu xirmay
 app.get('/api/whatsapp/qr', (req, res) => {
     if (!req.session.isLoggedIn) {
         return res.status(401).send({ error: "Fadlan soo gal nidaamka" });
     }
     
-    const qrImage = getLatestQR(); // Wuxuu soo qabanayaa sawirkii u dambeeyay
+    const qrImage = getLatestQR(); 
     res.send({ qrImage: qrImage });
 });
 

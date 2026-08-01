@@ -10,7 +10,7 @@ function settingsPage(storeData = {}) {
             <title>Settings - Midaar Automation</title>
             <script src="https://cdn.tailwindcss.com"></script>
         </head>
-        <body class="bg-[#0b0314] text-white flex min-h-screen font-sans">
+        <body class="bg-[#0b0314] text-white flex min-h-screen font-sans relative">
             
             <aside class="w-64 bg-[#140827] border-r border-purple-900/40 p-6 hidden md:block">
                 <div class="flex items-center gap-3 mb-10">
@@ -39,10 +39,11 @@ function settingsPage(storeData = {}) {
                 </div>
             </aside>
 
-            <main class="flex-1 p-8 overflow-y-auto">
-                <header class="mb-10">
-                    <h2 class="text-3xl font-bold text-white">Dejinta Nidaamka (Settings)</h2>
-                    <p class="text-slate-400 mt-1">Halkan ku xir WhatsApp-ka oo AI-ga ku bar xogta aasaasiga ah.</p>
+            <!-- Waxaan badalay paddings si mobile-ka uusan ugu weynaan -->
+            <main class="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto">
+                <header class="mb-8 md:mb-10">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white">Dejinta Nidaamka</h2>
+                    <p class="text-slate-400 mt-1 text-sm md:text-base">Halkan ku xir WhatsApp-ka oo AI-ga ku bar xogta aasaasiga ah.</p>
                 </header>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -112,6 +113,22 @@ function settingsPage(storeData = {}) {
                 </div>
             </main>
 
+            <!-- 📱 MENU-KA HOOSE EE MOOBILKA (Bottom Navigation) -->
+            <nav class="md:hidden fixed bottom-0 left-0 w-full bg-[#140827] border-t border-purple-900/40 flex justify-around items-center p-3 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+                <a href="/dashboard" class="flex flex-col items-center text-slate-400 hover:text-white transition">
+                    <span class="text-xl mb-1">📦</span>
+                    <span class="text-[10px] font-bold">Dashboard</span>
+                </a>
+                <a href="/settings" class="flex flex-col items-center text-purple-400">
+                    <span class="text-xl mb-1">⚙️</span>
+                    <span class="text-[10px] font-bold">Settings</span>
+                </a>
+                <a href="/logout" class="flex flex-col items-center text-red-400/80 hover:text-red-400 transition">
+                    <span class="text-xl mb-1">🚪</span>
+                    <span class="text-[10px] font-bold">Ka bax</span>
+                </a>
+            </nav>
+
             <script>
                 function toggleApiView() {
                     const selector = document.getElementById('apiSelector').value;
@@ -122,16 +139,13 @@ function settingsPage(storeData = {}) {
 
                 let qrInterval;
 
-                // 🟢 QAYBTAN CUSUB WAXAY SI TOOS AH U HUBINAYSAA MARKA BOGGA LA FURO
                 document.addEventListener("DOMContentLoaded", () => {
                     fetch('/api/whatsapp/qr')
                         .then(res => res.json())
                         .then(data => {
                             if (data.qrImage === 'connected') {
-                                // Haddii uu horay u xirnaa
                                 showConnectedState();
                             } else if (data.qrImage) {
-                                // Haddii QR la soo saaray balse aan la iskaan garayn
                                 showQRState(data.qrImage);
                                 qrInterval = setInterval(checkQRStatus, 2000);
                             }
@@ -139,7 +153,6 @@ function settingsPage(storeData = {}) {
                         .catch(err => console.log("Lama hubin karin xaaladda QR-ka."));
                 });
 
-                // 🟢 FUNCTION: MUUJI INUU KU XIRAN YAHAY (BUTTON-KA BEDI)
                 function showConnectedState() {
                     const loadingText = document.getElementById('qr-loading');
                     const qrImage = document.getElementById('qr-image');
@@ -154,13 +167,12 @@ function settingsPage(storeData = {}) {
                     qrImage.classList.add('hidden');
                     
                     btn.innerText = "Is-xirka waa guuleystay 🎉";
-                    btn.disabled = true; // Taabashada ka jooji
+                    btn.disabled = true; 
                     btn.classList.replace('bg-purple-600', 'bg-emerald-600');
                     btn.classList.replace('hover:bg-purple-500', 'hover:bg-emerald-600');
                     btn.classList.add('cursor-not-allowed', 'opacity-80');
                 }
 
-                // 🟢 FUNCTION: MUUJI SAWIRKA QR-KA OON BADHANKA LAGA TAABAN KARIN
                 function showQRState(qrImgSrc) {
                     const loadingText = document.getElementById('qr-loading');
                     const qrImage = document.getElementById('qr-image');

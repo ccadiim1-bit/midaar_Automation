@@ -18,8 +18,19 @@ function dashboardPage(products = []) {
                 <td class="py-4 px-6 font-semibold text-white">${product.product_name}</td>
                 <td class="py-4 px-6 text-green-400 font-bold">${product.product_price}</td>
                 <td class="py-4 px-6 text-slate-400">${product.product_desc}</td>
-                <td class="py-4 px-6 text-right">
-                    <form action="/api/products/delete" method="POST" class="inline">
+                <td class="py-4 px-6 text-right flex justify-end gap-2 items-center h-full">
+                    <!-- Batoonka Beddelida oo xambaarsan xogta -->
+                    <button type="button" 
+                        onclick="openEditModal(this)" 
+                        data-id="${product.id}" 
+                        data-name="${product.product_name}" 
+                        data-price="${product.product_price}" 
+                        data-desc="${product.product_desc}" 
+                        class="text-blue-400 hover:text-blue-300 text-xs font-semibold px-3 py-1 bg-blue-400/10 rounded-lg">
+                        Beddel
+                    </button>
+                    <!-- Batoonka Tirtirida -->
+                    <form action="/api/products/delete" method="POST" class="inline m-0">
                         <input type="hidden" name="productId" value="${product.id}">
                         <button type="submit" class="text-red-400 hover:text-red-300 text-xs font-semibold px-3 py-1 bg-red-400/10 rounded-lg">Tirtir</button>
                     </form>
@@ -37,7 +48,7 @@ function dashboardPage(products = []) {
             <title>Dashboard - Midaar Automation</title>
             <script src="https://cdn.tailwindcss.com"></script>
         </head>
-        <body class="bg-[#0b0314] text-white flex min-h-screen font-sans">
+        <body class="bg-[#0b0314] text-white flex min-h-screen font-sans relative">
             
             <aside class="w-64 bg-[#140827] border-r border-purple-900/40 p-6 hidden md:block">
                 <div class="flex items-center gap-3 mb-10">
@@ -66,17 +77,18 @@ function dashboardPage(products = []) {
                 </div>
             </aside>
 
-            <main class="flex-1 p-8 overflow-y-auto">
-                <header class="flex justify-between items-center mb-10">
+            <!-- Waxaan badalay paddings si mobile-ka uusan ugu weynaan -->
+            <main class="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto">
+                <header class="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8 md:mb-10">
                     <div>
-                        <h2 class="text-3xl font-bold text-white">Maamulka Alaabta</h2>
-                        <p class="text-slate-400 mt-1">Halkan ku dar, ka beddel, kana tirtir xogta alaabta dukaankaaga.</p>
+                        <h2 class="text-2xl md:text-3xl font-bold text-white">Maamulka Alaabta</h2>
+                        <p class="text-slate-400 mt-1 text-sm md:text-base">Halkan ku dar, ka beddel, kana tirtir xogta alaabta.</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="bg-red-900/30 text-red-400 border border-red-900 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
                             🔴 Bot-ku ma xirna
                         </span>
-                        <div class="w-12 h-12 bg-[#140827] rounded-full flex items-center justify-center text-xl shadow-lg border border-purple-900/40">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-[#140827] rounded-full flex items-center justify-center text-xl shadow-lg border border-purple-900/40 hidden md:flex">
                             👤
                         </div>
                     </div>
@@ -85,24 +97,23 @@ function dashboardPage(products = []) {
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
                     <!-- QAYBTA HAL ALAAB LAGU DARO -->
                     <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg">
-                        <h3 class="text-lg font-semibold text-white mb-4">➕ Kudar Alaab Cusub (Hal hal)</h3>
+                        <h3 class="text-lg font-semibold text-white mb-4">➕ Kudar Alaab Cusub</h3>
                         <form action="/api/products/add" method="POST" class="flex flex-col gap-4">
                             <input type="text" name="product_name" placeholder="Magaca Alaabta (Tusaale: Kabo)" required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                             <input type="text" name="product_price" placeholder="Qiimaha (Tusaale: $25)" required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
-                            <input type="text" name="product_desc" placeholder="Faahfaahin gaaban (Tusaale: Kabo orodka...)" required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <input type="text" name="product_desc" placeholder="Faahfaahin gaaban..." required class="bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                             <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-xl text-sm font-semibold transition">
                                 Kudar Alaabta
                             </button>
                         </form>
                     </div>
 
-                    <!-- 🟢 QAYBTA CUSUB EE EXCEL/CSV LAGU SOO GELINAYO -->
+                    <!-- QAYBTA EXCEL/CSV LAGU SOO GELINAYO -->
                     <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg flex flex-col justify-between">
                         <div>
-                            <h3 class="text-lg font-semibold text-white mb-2">📤 Soo Geli Alaab Badan (Excel / CSV)</h3>
+                            <h3 class="text-lg font-semibold text-white mb-2">📤 Soo Geli Excel</h3>
                             <p class="text-slate-400 text-sm mb-4">
-                                Faylku waa inuu leeyahay saddexdan tiir (Columns): <br>
-                                <b class="text-purple-400">product_name</b>, <b class="text-purple-400">product_price</b>, <b class="text-purple-400">product_desc</b>
+                                Faylku waa inuu lahaadaa: <b class="text-purple-400">Magac</b>, <b class="text-purple-400">Qiimo</b>, <b class="text-purple-400">Faahfaahin</b>
                             </p>
                         </div>
                         <form action="/api/products/upload" method="POST" enctype="multipart/form-data" class="flex flex-col gap-4 mt-auto">
@@ -122,7 +133,7 @@ function dashboardPage(products = []) {
                         <h3 class="text-lg font-semibold text-white">Liiska Alaabta Keydsan</h3>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="w-full text-left border-collapse min-w-[600px]">
                             <thead class="bg-[#0b0314]/50">
                                 <tr>
                                     <th class="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-purple-900/40">Magaca Alaabta</th>
@@ -138,6 +149,82 @@ function dashboardPage(products = []) {
                     </div>
                 </div>
             </main>
+
+            <!-- 📱 MENU-KA HOOSE EE MOOBILKA (Bottom Navigation) -->
+            <nav class="md:hidden fixed bottom-0 left-0 w-full bg-[#140827] border-t border-purple-900/40 flex justify-around items-center p-3 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+                <a href="/dashboard" class="flex flex-col items-center text-purple-400">
+                    <span class="text-xl mb-1">📦</span>
+                    <span class="text-[10px] font-bold">Dashboard</span>
+                </a>
+                <a href="/settings" class="flex flex-col items-center text-slate-400 hover:text-white transition">
+                    <span class="text-xl mb-1">⚙️</span>
+                    <span class="text-[10px] font-bold">Settings</span>
+                </a>
+                <a href="/logout" class="flex flex-col items-center text-red-400/80 hover:text-red-400 transition">
+                    <span class="text-xl mb-1">🚪</span>
+                    <span class="text-[10px] font-bold">Ka bax</span>
+                </a>
+            </nav>
+
+            <!-- MODAL-KA BEDDELKA ALAABTA -->
+            <div id="editModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div class="bg-[#140827] w-full max-w-md rounded-2xl border border-purple-900/40 shadow-2xl p-6 transform transition-all">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white">✏️ Beddel Xogta Alaabta</h3>
+                        <button onclick="closeEditModal()" class="text-slate-400 hover:text-white transition text-xl">
+                            ✕
+                        </button>
+                    </div>
+                    
+                    <form action="/api/products/edit" method="POST" class="flex flex-col gap-4">
+                        <input type="hidden" name="productId" id="edit_productId">
+                        
+                        <div>
+                            <label class="block text-slate-400 text-xs font-semibold mb-2">Magaca Alaabta</label>
+                            <input type="text" name="product_name" id="edit_name" required class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-400 text-xs font-semibold mb-2">Qiimaha</label>
+                            <input type="text" name="product_price" id="edit_price" required class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-400 text-xs font-semibold mb-2">Faahfaahin</label>
+                            <input type="text" name="product_desc" id="edit_desc" required class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                        </div>
+                        
+                        <div class="flex gap-3 mt-4">
+                            <button type="button" onclick="closeEditModal()" class="flex-1 bg-transparent border border-slate-600 text-slate-300 hover:bg-slate-800 px-4 py-3 rounded-xl text-sm font-semibold transition">
+                                Jooji
+                            </button>
+                            <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-xl text-sm font-semibold transition">
+                                Keydi Isbedelka
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <script>
+                function openEditModal(buttonElement) {
+                    const id = buttonElement.getAttribute('data-id');
+                    const name = buttonElement.getAttribute('data-name');
+                    const price = buttonElement.getAttribute('data-price');
+                    const desc = buttonElement.getAttribute('data-desc');
+
+                    document.getElementById('edit_productId').value = id;
+                    document.getElementById('edit_name').value = name;
+                    document.getElementById('edit_price').value = price;
+                    document.getElementById('edit_desc').value = desc;
+
+                    document.getElementById('editModal').classList.remove('hidden');
+                }
+
+                function closeEditModal() {
+                    document.getElementById('editModal').classList.add('hidden');
+                }
+            </script>
         </body>
         </html>
     `;

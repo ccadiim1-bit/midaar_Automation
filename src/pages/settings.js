@@ -39,7 +39,6 @@ function settingsPage(storeData = {}) {
                 </div>
             </aside>
 
-            <!-- Waxaan badalay paddings si mobile-ka uusan ugu weynaan -->
             <main class="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto">
                 <header class="mb-8 md:mb-10">
                     <h2 class="text-2xl md:text-3xl font-bold text-white">Dejinta Nidaamka</h2>
@@ -55,6 +54,7 @@ function settingsPage(storeData = {}) {
                             <label class="block text-slate-400 text-sm mb-2">Dooro Qaabka Isku-xirka</label>
                             <select id="apiSelector" onchange="toggleApiView()" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 cursor-pointer">
                                 <option value="baileys">📱 QR Code (Baileys - Scan)</option>
+                                <option value="pairing">🔢 Pairing Code (Nambar)</option>
                                 <option value="greenapi">🟢 Green API (Cloud Instance)</option>
                                 <option value="meta">🌐 Meta API (Official WhatsApp)</option>
                             </select>
@@ -76,12 +76,29 @@ function settingsPage(storeData = {}) {
                             </button>
                         </div>
 
-                        <!-- TAB 2 & 3: API kale -->
+                        <!-- 🟢 TAB CUSUB: Pairing Code -->
+                        <div id="pairing-section" class="hidden flex-col items-center border-t border-purple-900/40 pt-4">
+                            <p class="text-slate-400 text-xs text-center mb-4">Geli nambarka WhatsApp-ka ee aad rabto inaad ka dhigto Bot. (Tusaale: 252615000000)</p>
+                            
+                            <input type="text" id="pairing-number" placeholder="25261..." class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm mb-4 text-center tracking-widest font-bold">
+
+                            <div id="pairing-code-display" class="hidden bg-white p-3 rounded-xl mb-4 w-full flex items-center justify-center border-2 border-indigo-500 border-dashed">
+                                <span id="the-code" class="text-3xl font-black text-slate-800 tracking-[0.2em]"></span>
+                            </div>
+
+                            <p id="pairing-status" class="text-emerald-400 text-xs text-center mb-4 hidden">✅ Koodhka hoos ka muuqda ku qor WhatsApp-kaaga (Linked Devices > Link with phone number).</p>
+
+                            <button type="button" onclick="requestPairingCode()" id="btn-pairing" class="bg-indigo-600 hover:bg-indigo-500 text-white w-full py-3 rounded-xl font-semibold transition text-sm">
+                                🔢 Codso Koodhka Isku-xirka
+                            </button>
+                        </div>
+
+                        <!-- TAB 3 & 4: API kale -->
                         <div id="greenapi-section" class="hidden border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR.</p>
+                            <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR iyo Pairing.</p>
                         </div>
                         <div id="meta-section" class="hidden border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR.</p>
+                            <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR iyo Pairing.</p>
                         </div>
                     </div>
 
@@ -89,6 +106,21 @@ function settingsPage(storeData = {}) {
                         <h3 class="text-white font-semibold mb-4 flex items-center gap-2">🧠 Xogta Dukaanka & Goobta</h3>
                         
                         <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-slate-400 text-sm mb-1">Nambarka Maamulka (Admin)</label>
+                                    <input type="text" name="admin_number" placeholder="25261..." value="${storeData.admin_number || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                    <p class="text-[10px] text-slate-500 mt-1">Halkan ayaa lala wadaagayaa xogta dalabka.</p>
+                                </div>
+                                <div>
+                                    <label class="block text-slate-400 text-sm mb-1">Nambarada Shaqaalaha (Delivery)</label>
+                                    <input type="text" name="delivery_numbers" placeholder="252..., 252..." value="${storeData.delivery_numbers || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                    <p class="text-[10px] text-slate-500 mt-1">Haddii ay badan yihiin, u dhaxaysii hakad (,).</p>
+                                </div>
+                            </div>
+                            
+                            <hr class="border-purple-900/40 my-2">
+
                             <div>
                                 <label class="block text-slate-400 text-sm mb-1">Gemini API Key (Optional)</label>
                                 <input type="password" name="gemini_key" value="${storeData.gemini_key || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
@@ -113,7 +145,6 @@ function settingsPage(storeData = {}) {
                 </div>
             </main>
 
-            <!-- 📱 MENU-KA HOOSE EE MOOBILKA (Bottom Navigation) -->
             <nav class="md:hidden fixed bottom-0 left-0 w-full bg-[#140827] border-t border-purple-900/40 flex justify-around items-center p-3 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
                 <a href="/dashboard" class="flex flex-col items-center text-slate-400 hover:text-white transition">
                     <span class="text-xl mb-1">📦</span>
@@ -133,6 +164,7 @@ function settingsPage(storeData = {}) {
                 function toggleApiView() {
                     const selector = document.getElementById('apiSelector').value;
                     document.getElementById('baileys-section').style.display = selector === 'baileys' ? 'flex' : 'none';
+                    document.getElementById('pairing-section').style.display = selector === 'pairing' ? 'flex' : 'none';
                     document.getElementById('greenapi-section').style.display = selector === 'greenapi' ? 'block' : 'none';
                     document.getElementById('meta-section').style.display = selector === 'meta' ? 'block' : 'none';
                 }
@@ -159,18 +191,32 @@ function settingsPage(storeData = {}) {
                     const btn = document.getElementById('btn-scan');
                     const instruction = document.getElementById('qr-instruction');
 
-                    instruction.innerHTML = "Bot-kaagu wuxuu diyaar u yahay inuu u adeego macaamiishaada.";
+                    if(instruction) instruction.innerHTML = "Bot-kaagu wuxuu diyaar u yahay inuu u adeego macaamiishaada.";
                     
-                    loadingText.innerHTML = "✅<br>WhatsApp waa<br>ku xiran yahay!";
-                    loadingText.classList.remove('hidden', 'text-slate-800');
-                    loadingText.classList.add('text-emerald-600', 'text-lg', 'font-black');
-                    qrImage.classList.add('hidden');
+                    if(loadingText) {
+                        loadingText.innerHTML = "✅<br>WhatsApp waa<br>ku xiran yahay!";
+                        loadingText.classList.remove('hidden', 'text-slate-800');
+                        loadingText.classList.add('text-emerald-600', 'text-lg', 'font-black');
+                    }
+                    if(qrImage) qrImage.classList.add('hidden');
                     
-                    btn.innerText = "Is-xirka waa guuleystay 🎉";
-                    btn.disabled = true; 
-                    btn.classList.replace('bg-purple-600', 'bg-emerald-600');
-                    btn.classList.replace('hover:bg-purple-500', 'hover:bg-emerald-600');
-                    btn.classList.add('cursor-not-allowed', 'opacity-80');
+                    if(btn) {
+                        btn.innerText = "Is-xirka waa guuleystay 🎉";
+                        btn.disabled = true; 
+                        btn.classList.replace('bg-purple-600', 'bg-emerald-600');
+                        btn.classList.replace('hover:bg-purple-500', 'hover:bg-emerald-600');
+                        btn.classList.add('cursor-not-allowed', 'opacity-80');
+                    }
+
+                    // Sidoo kale bedel badhanka Pairing Code-ka haddii la isku xiray
+                    const btnPairing = document.getElementById('btn-pairing');
+                    if(btnPairing) {
+                        btnPairing.innerText = "Waa ku xiran yahay 🎉";
+                        btnPairing.disabled = true;
+                        btnPairing.classList.replace('bg-indigo-600', 'bg-emerald-600');
+                        btnPairing.classList.replace('hover:bg-indigo-500', 'hover:bg-emerald-600');
+                        btnPairing.classList.add('cursor-not-allowed', 'opacity-80');
+                    }
                 }
 
                 function showQRState(qrImgSrc) {
@@ -225,6 +271,61 @@ function settingsPage(storeData = {}) {
                                 showQRState(data.qrImage);
                             }
                         });
+                }
+
+                // 🟢 SHAQADA CUSUB: JAVASCRIPT-KA SOO CODsanaya PAIRING CODE-KA
+                function requestPairingCode() {
+                    const phoneInput = document.getElementById('pairing-number').value;
+                    const btn = document.getElementById('btn-pairing');
+                    const codeDisplay = document.getElementById('pairing-code-display');
+                    const theCodeText = document.getElementById('the-code');
+                    const statusText = document.getElementById('pairing-status');
+
+                    if (!phoneInput) {
+                        alert("Fadlan gali nambarka WhatsApp-ka!");
+                        return;
+                    }
+
+                    btn.innerText = "Wuxuu raadinayaa koodhka... ⏳";
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+                    fetch('/api/whatsapp/pair', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ phoneNumber: phoneInput })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        btn.innerText = "Dib u codso Koodh cusub";
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                        if (data.status === 'success' && data.code) {
+                            codeDisplay.classList.remove('hidden');
+                            statusText.classList.remove('hidden');
+                            
+                            // Koodhka ka dhig mid kala go'an si loo akhrin karo (Tusaale: ABCD-1234)
+                            let formattedCode = data.code;
+                            if(formattedCode.length === 8) {
+                                formattedCode = formattedCode.slice(0, 4) + '-' + formattedCode.slice(4);
+                            }
+                            theCodeText.innerText = formattedCode;
+
+                            // Bilow inuu hubiyo inuu xirmay (sida QR-ka oo kale)
+                            qrInterval = setInterval(checkQRStatus, 2000);
+                        } else {
+                            alert(data.error || "Lama soo saari karin koodhka. Hubi in bot-ku kacsan yahay.");
+                        }
+                    })
+                    .catch(err => {
+                        btn.innerText = "❌ Cilad - Dib u isku day";
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        alert("Cilad ayaa dhacday dhanka Server-ka.");
+                    });
                 }
             </script>
         </body>

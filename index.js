@@ -8,7 +8,8 @@ const xlsx = require('xlsx');
 const upload = multer({ dest: 'uploads/' }); // Galka kumeel gaarka ah ee faylasha la soo geliyo
 
 // 🟢 ISBEDELKA: Waxaan halkan ku soo darnay stopWhatsApp
-const { startWhatsApp, getLatestQR, stopWhatsApp } = require('./src/services/whatsappService.js');
+// 🟢 ISBEDELKA: Waxaan halkan ku soo darnay stopWhatsApp iyo requestWhatsAppPairingCode
+const { startWhatsApp, getLatestQR, stopWhatsApp, requestWhatsAppPairingCode } = require('./src/services/whatsappService.js');
 const settingsPage = require('./src/pages/settings.js');
 const express = require('express');
 const session = require('express-session'); 
@@ -354,7 +355,8 @@ app.post('/api/settings/save', async (req, res) => {
         return res.redirect('/login');
     }
 
-    const { gemini_key, location, work_hours, system_prompt } = req.body;
+    // 🟢 Halkan ayaan ku darnay labada column ee cusub
+    const { gemini_key, location, work_hours, system_prompt, admin_number, delivery_numbers } = req.body;
     const storeId = req.session.storeData.id;
 
     try {
@@ -364,7 +366,9 @@ app.post('/api/settings/save', async (req, res) => {
                 gemini_key: gemini_key, 
                 location: location, 
                 work_hours: work_hours, 
-                system_prompt: system_prompt 
+                system_prompt: system_prompt,
+                admin_number: admin_number,          // 🟢 La Keydiyay
+                delivery_numbers: delivery_numbers   // 🟢 La Keydiyay
             })
             .eq('id', storeId);
 
@@ -407,6 +411,35 @@ app.get('/api/whatsapp/qr', (req, res) => {
     res.send({ qrImage: qrImage });
 });
 
+// 🟢 SHAQADA CUSUB: PAIRING CODE (Soo saarista koodhka nambarka lala xirayo)
+app.post('/api/whatsapp/pair', async (req, res) => {
+    if (!req.session.isLoggedIn || !req.session.storeData) {
+        return res.status(401).send({ error: "Fadlan soo gal nidaamka" });
+    }
+
+    const { phoneNumber } = req.body;
+    const storeId = req.session.storeData.id;
+
+    if (!phoneNumber) {
+        return res.status(400).send({ error: "Nambarka WhatsApp-ka waa loo baahan yahay." });
+    }
+
+    try {
+        // Waxaan u yeeraynaa shaqada soo saaraysa koodhka (Pairing Code)
+        const code = await requestWhatsAppPairingCode(storeId, phoneNumber);
+        
+        if (code) {
+            res.send({ status: 'success', code: code });
+        } else {
+            res.status(400).send({ error: "Lama soo saari karin koodhka. Hubi in bot-ku diyaar yahay." });
+        }
+    } catch (err) {
+        console.error(`❌ Cilad dhanka soo saarista Pairing Code-ka dukaanka ${storeId}:`, err);
+        res.status(500).send({ error: "Cilad Server-ka ah ayaa dhacday." });
+    }
+});
+
+// Server-ka halkan ayuu ka kacayaa waana inuu ugu dambeeyaa
 app.listen(PORT, () => {
     console.log(`Bismillah! Nidaamku wuxuu ka shaqaynayaa: http://localhost:${PORT}`);
 });

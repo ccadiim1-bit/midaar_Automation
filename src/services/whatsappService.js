@@ -17,7 +17,7 @@ const supabase = require('../config/supabaseClient'); // 🟢 KUDARISTA CUSUB: S
 const activeSockets = {}; 
 const stoppedBots = {}; 
 const userChatHistory = {}; // 🟢 KUDARISTA CUSUB: Kaydka lagu xafido silsiladda fariimaha (Chat History)
-let qrCodeImage = ''; 
+const connectionStatus = {}; // 🟢 WAA LAGU DARAY: Halkan lagu kaydiyo xaalad kasta oo dukaan
 
 async function startWhatsApp(storeId) {
     stoppedBots[storeId] = false; 
@@ -30,7 +30,7 @@ async function startWhatsApp(storeId) {
 
     console.log(`⏳ Waxaan isku xirayaa WhatsApp (Local Folder) - Store ID: ${storeId}...`);
 
-    qrCodeImage = ''; 
+    connectionStatus[storeId] = { qr: '', status: 'connecting' }; // 🟢 WAA LAGU DARAY
 
     const authFolderPath = path.join(__dirname, `../../auth_info/store_${storeId}`);
     
@@ -64,17 +64,23 @@ async function startWhatsApp(storeId) {
         
         if (qr) {
             console.log(`🔄 QR Code cusub ayaa loo soo saaray dukaanka ID: ${storeId}`);
-            qrCodeImage = await QRCode.toDataURL(qr); 
+            connectionStatus[storeId].qr = await QRCode.toDataURL(qr); // 🟢 WAA LAGU DARAY
+            connectionStatus[storeId].status = 'qr_ready'; // 🟢 WAA LAGU DARAY
         }
         
         if (connection === 'close') {
             delete activeSockets[storeId]; 
+            // 🟢 WAA LAGU DARAY: Cusboonaysii xaaladda marka uu xirmo
+            if (connectionStatus[storeId]) {
+                connectionStatus[storeId].status = 'disconnected';
+                connectionStatus[storeId].qr = '';
+            }
             
             const statusCode = (lastDisconnect?.error)?.output?.statusCode;
             
             if (statusCode === DisconnectReason.loggedOut) {
                 console.log('⚠️ Waa lagaa saaray WhatsApp (Mobile-ka ayaa laga xiray). Shaqadii Bot-ka waa la joojinayaa...');
-                qrCodeImage = ''; 
+                delete connectionStatus[storeId]; // 🟢 WAA LAGU DARAY: Ka saar xogta oo dhan
                 try { sock.ws.close(); } catch (err) {}
                 sock.ev.removeAllListeners();
                 
@@ -86,7 +92,7 @@ async function startWhatsApp(storeId) {
                 }, 2000);
             } else if (stoppedBots[storeId]) {
                 console.log(`⏸️ Bot-ka (Store ${storeId}) waa la hakiyay. Galkii (Session) waa la xafiday.`);
-                qrCodeImage = ''; 
+                if (connectionStatus[storeId]) connectionStatus[storeId].status = 'stopped'; // 🟢 WAA LAGU DARAY
                 sock.ev.removeAllListeners(); 
             } else {
                 console.log('❌ Xiriirkii WhatsApp waa go\'ay. Dib ayaa loo kicinayaa 5 ilbiriqsi kadib...');
@@ -96,7 +102,10 @@ async function startWhatsApp(storeId) {
             }
         } else if (connection === 'open') {
             console.log(`✅ WhatsApp (Store ${storeId}) si guul leh ayuu u kacay!`);
-            qrCodeImage = 'connected'; 
+            if (connectionStatus[storeId]) { // 🟢 WAA LAGU DARAY
+                connectionStatus[storeId].status = 'connected';
+                connectionStatus[storeId].qr = '';
+            }
         }
     });
 
@@ -282,8 +291,8 @@ async function startWhatsApp(storeId) {
     });
 }
 
-function getLatestQR() {
-    return qrCodeImage;
+function getStoreConnectionState(storeId) { // 🟢 WAA LAGU DARAY
+    return connectionStatus[storeId] || { qr: '', status: 'disconnected' };
 }
 
 function stopWhatsApp(storeId) {
@@ -333,4 +342,4 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
         return null;
     }
 }
-module.exports = { startWhatsApp, getLatestQR, stopWhatsApp, requestWhatsAppPairingCode };
+module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, requestWhatsAppPairingCode };

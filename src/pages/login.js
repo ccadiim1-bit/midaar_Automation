@@ -1,15 +1,11 @@
 // src/pages/login.js
 
 function loginPage(errorMsg = '') {
-    // Haddii fariin qalad ah lasoo diro, waxaan dhisaynaa naqshad cas oo digniin ah
-    let errorAlert = '';
-    if (errorMsg) {
-        errorAlert = `
-            <div class="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm text-center">
-                ${errorMsg}
-            </div>
-        `;
-    }
+    let errorAlert = errorMsg ? `
+        <div class="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm text-center">
+            ${errorMsg}
+        </div>
+    ` : '';
 
     return `
         <!DOCTYPE html>
@@ -19,48 +15,59 @@ function loginPage(errorMsg = '') {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Gal Nidaamka - Midaar Automation</title>
             <script src="https://cdn.tailwindcss.com"></script>
+            <!-- CDN JS ee Supabase -->
+            <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         </head>
         <body class="bg-[#0b0314] text-white flex items-center justify-center min-h-screen">
-            <div class="bg-[#140827] p-8 rounded-2xl border border-purple-900/40 shadow-xl max-w-md w-full">
+            <div class="bg-[#140827] p-8 rounded-2xl border border-purple-900/40 shadow-xl max-w-md w-full text-center">
                 
-                <div class="flex items-center gap-3 mb-6">
+                <div class="flex items-center justify-center gap-3 mb-6">
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center text-white font-bold">
                         M
                     </div>
-                    <div>
+                    <div class="text-left">
                         <h1 class="text-xl font-black text-white">Midaar</h1>
                         <p class="text-[10px] text-blue-300 tracking-widest uppercase">Automation</p>
                     </div>
                 </div>
 
                 <h2 class="text-2xl font-bold mb-2">Ku Soo Dhawoow</h2>
-                <p class="text-xs text-slate-400 mb-6">Geli xogtaada si aad u maamusho nidaamkaaga.</p>
+                <p class="text-xs text-slate-400 mb-8">Geli nidaamka si aad u maamusho dukaankaaga.</p>
 
-                <!-- Halkan ayey kasoo muuqan doontaa fariinta qaladku haddii ay jirto -->
                 ${errorAlert}
 
-                <form action="/api/login" method="POST" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Nambarka WhatsApp-ka</label>
-                        <input name="whatsapp" type="text" placeholder="Tus: 25261XXXXXX" required class="w-full px-4 py-2.5 bg-[#251244] border border-purple-900/60 rounded-xl text-white outline-none focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Password (Furaha)</label>
-                        <input name="password" type="password" placeholder="Geli furaha sirta ah" required class="w-full px-4 py-2.5 bg-[#251244] border border-purple-900/60 rounded-xl text-white outline-none focus:border-blue-500">
-                    </div>
-                    <div class="flex justify-end">
-                        <a href="#" class="text-xs text-blue-400 hover:text-blue-300">Ma ilowday furahaaga?</a>
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold mt-4 transition">
-                        Gal Nidaamka
-                    </button>
-                </form>
+                <!-- Badhanka Google Login -->
+                <button type="button" onclick="handleGoogleLogin()" class="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-lg cursor-pointer">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    Continue with Google
+                </button>
 
-                <p class="text-center text-sm text-slate-400 mt-6">
-                    Akoon cusub ma u baahan tahay? 
-                    <a href="/register" class="text-blue-400 font-bold hover:text-blue-300">Is-diiwaangeli (Sign Up)</a>
-                </p>
             </div>
+
+            <script>
+                const SUPABASE_URL = "${process.env.SUPABASE_URL || ''}";
+                const SUPABASE_KEY = "${process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || ''}";
+                const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+                async function handleGoogleLogin() {
+                    try {
+                        const { data, error } = await client.auth.signInWithOAuth({
+                            provider: 'google',
+                            options: {
+                                redirectTo: window.location.origin + '/auth/callback'
+                            }
+                        });
+                        if (error) alert("Qalad ayaa dhacay: " + error.message);
+                    } catch (err) {
+                        alert("Qalad: " + err.message);
+                    }
+                }
+            </script>
         </body>
         </html>
     `;

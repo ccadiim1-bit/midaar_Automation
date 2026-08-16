@@ -1,6 +1,20 @@
 // src/pages/dashboard.js
 
-function dashboardPage(products = []) {
+function dashboardPage(products = [], isBotConnected = false) {
+    // Si firfircoon u samee calaamadda xaaladda bot-ka
+    const statusIndicatorHTML = isBotConnected 
+        ? `
+            <span class="bg-green-900/30 text-green-400 border border-green-900 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                🟢 Bot-ku wuu ku xiran yahay
+            </span>
+        ` 
+        : `
+            <span class="bg-red-900/30 text-red-400 border border-red-900 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                🔴 Bot-ku ma xirna
+            </span>
+        `;
+
+
     // Halkan waxaan ku dhisaynaa liiska alaabta oo toos ah (Dynamic)
     let productsHTML = '';
 
@@ -85,9 +99,7 @@ function dashboardPage(products = []) {
                         <p class="text-slate-400 mt-1 text-sm md:text-base">Halkan ku dar, ka beddel, kana tirtir xogta alaabta.</p>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="bg-red-900/30 text-red-400 border border-red-900 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
-                            🔴 Bot-ku ma xirna
-                        </span>
+                        ${statusIndicatorHTML}
                         <div class="w-10 h-10 md:w-12 md:h-12 bg-[#140827] rounded-full flex items-center justify-center text-xl shadow-lg border border-purple-900/40 hidden md:flex">
                             👤
                         </div>

@@ -1,11 +1,20 @@
-// src/config/supabaseClient.js
-require('dotenv').config(); // Tani waxay soo akhrinaysaa faylka .env
+require('dotenv').config(); // 🔴 1. Kicinta akhriska faylka .env
 const { createClient } = require('@supabase/supabase-js');
 
-// Hadda nidaamku wuxuu furayaasha ka soo qaadanayaa meel qarsoon
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_KEY; // 🔴 2. Hubi in magacu yahay SUPABASE_KEY
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseKey) {
+    console.error("❌ CILAD: SUPABASE_URL ama SUPABASE_KEY lagama helin faylka .env!");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        flowType: 'pkce',
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false
+    }
+});
 
 module.exports = supabase;

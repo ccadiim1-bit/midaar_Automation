@@ -19,13 +19,16 @@
     "@supabase/supabase-js": "^2.110.7",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "body-parser": "^2.3.0",
+    "bullmq": "^6.1.2",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
+    "ioredis": "^6.0.0",
     "multer": "^2.2.0",
     "openai": "^7.4.0",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",
+    "utils": "^0.3.1",
     "xlsx": "^0.18.5"
   }
 }

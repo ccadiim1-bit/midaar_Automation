@@ -2,14 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabaseClient.js');
-
-// Middleware to check if user is logged in
-function isLoggedIn(req, res, next) {
-    if (req.session.isLoggedIn && req.session.storeData) {
-        return next();
-    }
-    res.redirect('/login');
-}
+const { isLoggedIn } = require('../middleware/authMiddleware.js'); // 🟢 WAA LAGU DARAY: Middleware la wadaago
 
 router.use(isLoggedIn);
 

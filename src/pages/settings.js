@@ -1,4 +1,5 @@
 // src/pages/settings.js
+const { escapeHTML } = require('../utils/escape.js');
 
 function settingsPage(storeData = {}) {
     return `
@@ -109,12 +110,12 @@ function settingsPage(storeData = {}) {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-slate-400 text-sm mb-1">Nambarka Maamulka (Admin)</label>
-                                    <input type="text" name="admin_number" placeholder="25261..." value="${storeData.admin_number || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                    <input type="text" name="admin_number" placeholder="25261..." value="${escapeHTML(storeData.admin_number)}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                                     <p class="text-[10px] text-slate-500 mt-1">Halkan ayaa lala wadaagayaa xogta dalabka.</p>
                                 </div>
                                 <div>
                                     <label class="block text-slate-400 text-sm mb-1">Nambarada Shaqaalaha (Delivery)</label>
-                                    <input type="text" name="delivery_numbers" placeholder="252..., 252..." value="${storeData.delivery_numbers || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                    <input type="text" name="delivery_numbers" placeholder="252..., 252..." value="${escapeHTML(storeData.delivery_numbers)}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                                     <p class="text-[10px] text-slate-500 mt-1">Haddii ay badan yihiin, u dhaxaysii hakad (,).</p>
                                 </div>
                             </div>
@@ -123,19 +124,19 @@ function settingsPage(storeData = {}) {
 
                             <div>
                                 <label class="block text-slate-400 text-sm mb-1">Gemini API Key (Optional)</label>
-                                <input type="password" name="gemini_key" value="${storeData.gemini_key || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                <input type="password" name="gemini_key" value="${escapeHTML(storeData.gemini_key)}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                             </div>
                             <div>
                                 <label class="block text-slate-400 text-sm mb-1">Magaalada / Location-ka</label>
-                                <input type="text" name="location" value="${storeData.location || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                <input type="text" name="location" value="${escapeHTML(storeData.location)}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                             </div>
                             <div>
                                 <label class="block text-slate-400 text-sm mb-1">Saacadaha Shaqada</label>
-                                <input type="text" name="work_hours" value="${storeData.work_hours || ''}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                                <input type="text" name="work_hours" value="${escapeHTML(storeData.work_hours)}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                             </div>
                             <div>
                                 <label class="block text-slate-400 text-sm mb-1">Tilmaamaha Bot-ka (System Prompt)</label>
-                                <textarea name="system_prompt" rows="3" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">${storeData.system_prompt || ''}</textarea>
+                                <textarea name="system_prompt" rows="3" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">${escapeHTML(storeData.system_prompt)}</textarea>
                             </div>
                             <button type="submit" class="bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/30 px-6 py-2.5 rounded-xl font-semibold transition mt-2">
                                 💾 Keydi Xogta Settings-ka

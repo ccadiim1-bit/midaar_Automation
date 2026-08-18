@@ -1,4 +1,5 @@
 // src/pages/register.js
+const { escapeHTML } = require('../utils/escape.js');
 
 function registerPage(userEmail = '') {
     return `
@@ -19,7 +20,7 @@ function registerPage(userEmail = '') {
                 <form action="/api/complete-registration" method="POST" class="space-y-4">
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Email-kaaga Google</label>
-                        <input type="text" value="${userEmail}" disabled class="w-full px-4 py-2.5 bg-[#1f0d38] border border-purple-900/30 rounded-xl text-slate-400 outline-none cursor-not-allowed">
+                        <input type="text" value="${escapeHTML(userEmail)}" disabled class="w-full px-4 py-2.5 bg-[#1f0d38] border border-purple-900/30 rounded-xl text-slate-400 outline-none cursor-not-allowed">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1">Magaca Dukaanka *</label>

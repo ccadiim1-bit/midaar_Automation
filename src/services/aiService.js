@@ -1,16 +1,51 @@
 // src/services/aiService.js
 const supabase = require('../config/supabaseClient'); 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { OpenAI } = require('openai'); // 🟢 KORDHIN CUSUB: Maktabadda DeepSeek (Plan C)
-require('dotenv').config();
+const { OpenAI } = require('openai'); // Import OpenAI for DeepSeek fallback
+require('dotenv').config(); // Ensure dotenv is loaded
 
-// 🟢 KORDHIN: Waxaan ku darnay 'chatHistory' oo ah liiska fariimihii hore
-// 🟢 KUDARISTA CUSUB (SAWIRADA): Waxaan ku darnay 'imageData' parameter-ka ugu dambeeya
-async function generateAIResponse(storeId, messageText, chatHistory = [], imageData = null) {
+/**
+ * 1. Load multiple Gemini API keys from .env file (e.g., GEMINI_KEY_1, GEMINI_KEY_2).
+ * This allows for load balancing and avoids rate limits.
+ */
+const geminiApiKeys = Object.keys(process.env)
+  .filter(key => key.startsWith('GEMINI_KEY_'))
+  .map(key => process.env[key]);
+
+if (geminiApiKeys.length === 0) {
+  console.error('❌ CRITICAL: No GEMINI_KEY_... found in .env file. AI service will not work.');
+  // Consider exiting or throwing here if AI is absolutely essential
+}
+
+let currentApiKeyIndex = 0;
+
+/**
+ * 2. Implements a round-robin mechanism to rotate through the available API keys.
+ * @returns {string} The next API key to use.
+ */
+function getNextApiKey() {
+  if (geminiApiKeys.length === 0) {
+    throw new Error("No Gemini API keys available.");
+  }
+  // Ensure we don't go out of bounds if keys are removed or changed dynamically (unlikely but safe)
+  if (currentApiKeyIndex >= geminiApiKeys.length) {
+    currentApiKeyIndex = 0;
+  }  const key = geminiApiKeys[currentApiKeyIndex];
+  currentApiKeyIndex = (currentApiKeyIndex + 1) % geminiApiKeys.length;
+  console.log(`[AI] Using API Key index: ${currentApiKeyIndex}`);
+  return key;
+}
+
+// Preferred Gemini models to try in order of preference/cost
+const preferredGeminiModels = [
+    "gemini-flash-latest",
+];
+
+async function generateAIResponse(storeId, userPrompt, productsContext, chatHistory = [], imageData = null) {
     try {
         const { data: storeInfo, error: storeError } = await supabase
             .from('stores') 
-            .select('gemini_key, location, work_hours, system_prompt')
+            .select('system_prompt, location, work_hours, gemini_key') // 🟢 WAA LAGU DARAY: gemini_key
             .eq('id', storeId)
             .single();
 
@@ -19,51 +54,13 @@ async function generateAIResponse(storeId, messageText, chatHistory = [], imageD
             return "Waan ka xunnahay, cilad ayaa ka dhacday dhanka kaydka.";
         }
 
-        const { data: products, error: productError } = await supabase
-            .from('products')
-            .select('product_name, product_price, product_desc')
-            .eq('store_id', storeId);
-
-        if (productError) console.error('❌ Cilad akhrinta Alaabta:', productError.message);
-
-        // =========================================================
-        // 🔒 HUBINTA FURAHA IYO KALA SAARISTA
-        // =========================================================
-        let apiKeyToUse = storeInfo?.gemini_key;
-        let isMasterKey = false; 
-
-        // Waxaan ogolaanay in furuhu ka bilowdo 'AIza' AMA 'AQ.'
-        if (!apiKeyToUse || apiKeyToUse.trim() === '' || !(apiKeyToUse.startsWith('AIza') || apiKeyToUse.startsWith('AQ.'))) {
-            console.log('⚠️ Dukaanku fure sax ah ma laha, waxaan isticmaalaynaa Master Key-ga.');
-            apiKeyToUse = process.env.MASTER_GEMINI_API_KEY;
-            isMasterKey = true; 
-        }
-
-        if (!apiKeyToUse || !(apiKeyToUse.startsWith('AIza') || apiKeyToUse.startsWith('AQ.'))) {
-            console.log('❌ Ma jiro API Key sax ah oo la helay!');
-            return "Cilad farsamo: Nidaamka AI-ga ma haysto fure uu ku shaqeeyo.";
-        }
-
-        // =========================================================
-        // 🧠 DIYAARINTA XOGTA
-        // =========================================================
-        let productList = "\n\n📦 ALAABTA HADDA DUKAANKA YAALLA:\n";
-        if (products && products.length > 0) {
-            products.forEach(p => {
-                productList += `- ${p.product_name}: Qiimuhu waa $${p.product_price}. (${p.product_desc})\n`;
-            });
-        } else {
-            productList += "Waqtigan xaadirka ah wax alaab ah ma yaallaan.\n";
-        }
-
-        // 🟢 KORDHIN: Shuruudo adag oo hubinaya Magaca, Nambarka iyo Goobta iyo XUSUUSTA ALAABTA inta aan la dirin ORDER_TRIGGERED
         const finalSystemPrompt = `
         ${storeInfo?.system_prompt || 'Waxaad tahay iibiye asluub leh oo matalaya dukaankan.'}
         
         XOGTA DUKAANKA:
         📍 Goobta: ${storeInfo?.location || 'Lama garanayo'}
         ⏰ Saacadaha: ${storeInfo?.work_hours || 'Lama garanayo'}
-        ${productList}
+        ${productsContext}
 
         SHURUUDAHA JAWABTA:
         1. Ula hadl sidii qof iibiye ah oo xushmad leh.
@@ -84,134 +81,117 @@ async function generateAIResponse(storeId, messageText, chatHistory = [], imageD
            ORDER_TRIGGERED: [Magaca Macmiilka] | [Nambarka Telefoonka] | [Goobta/Magaalada] | [Alaabta La Dalbaday]
         `;
 
-        const genAI = new GoogleGenerativeAI(apiKeyToUse);
-        
-        // =========================================================
-        // 🚀 KALA DOORASHO MODEL-YADA CUSUB (COST SAVING LOGIC)
-        // =========================================================
-        let modelsToTry = [];
-
-       if (isMasterKey) {
-            console.log('💰 Master Key baa shaqaynaya: Waxaan dooranaynaa Lite iyo Models-ka ugu jaban');
-            modelsToTry = [
-                 "gemini-flash-latest",
-                "gemini-2.0-flash-lite",
-                "gemini-2.0-flash",
-                "gemini-flash-latest"
-            ];
-        } else {
-    console.log('👑 Store Key baa shaqaynaya: Waxaan isku dayaynaa Models-ka ugu jaban ee cusub');
-    modelsToTry = [
-        "gemini-flash-latest",
-        "gemini-2.0-flash-lite",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-flash-latest"
-    ];
-        }
-
-        // 🟢 KORDHIN: Habaynta Xusuusta (History Formatting) ee Gemini API
         const formattedHistory = chatHistory.map(msg => ({
-            role: msg.role === 'ai' ? 'model' : 'user', 
+            role: msg.role === 'ai' ? 'model' : 'user',
             parts: [{ text: msg.text }]
         }));
 
-        // 🛠️ XALINTA CILADDA: Gemini wuxuu shardi ka dhigayaa in xusuustu ka bilaabato fariin 'user' ah
+        // Gemini requires history to start with a user message
+        // Ensure the history starts with a 'user' role, if not, remove leading 'model' messages
         while (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
             formattedHistory.shift(); 
         }
 
         let aiResponseText = null;
-
-        // 🟢 KUDARISTA CUSUB (SAWIRADA): Diyaarinta fariinta Gemini loo dirayo (Prompt Parts)
-        let promptParts = [];
         
-        if (messageText) {
-            promptParts.push(messageText);
-        } else if (imageData) {
-            promptParts.push("Fadlan sawirkan maxaa ku jira ee iib ah, iina sharax si kooban.");
-        }
-        
-        if (imageData) {
-            promptParts.push(imageData);
-        }
-
-        for (const modelName of modelsToTry) {
-            try {
-                console.log(`🔄 Iskudayga Model-ka: ${modelName}...`);
-                
-                const model = genAI.getGenerativeModel({ 
-                    model: modelName,
-                    systemInstruction: finalSystemPrompt
-                });
-
-                const chatSession = model.startChat({
-                    history: formattedHistory
-                });
-
-                // 🟢 KUDARISTA CUSUB (SAWIRADA): Halkan waxaa la dirayaa array-gii xambaarsanaa qoraalka iyo sawirka
-                const result = await chatSession.sendMessage(promptParts);
-                aiResponseText = result.response.text();
-                
-                console.log(`✅ Guul! Model-ka [${modelName}] ayaa shaqeeyay.`);
-                break; 
-
-            } catch (modelError) {
-                console.log(`⚠️ Model-ka [${modelName}] wuu diiday.`);
-                console.error(`   👉 SABABTA:`, modelError.message || modelError);
-            }
-        }
- 
-        // =========================================================
-        // 🟢 KORDHIN CUSUB: FALLBACK TO MASTER KEY 
-        // =========================================================
-        if (!aiResponseText && !isMasterKey) {
-            console.log('⚠️ Dukaanka API-giisa wuu fashilmay. Waxaan si toos ah ugu wareegaynaa Master Key...');
-            
-            const fallbackGenAI = new GoogleGenerativeAI(process.env.MASTER_GEMINI_API_KEY);
-            const fallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"]; 
-
-            for (const modelName of fallbackModels) {
+        // --- 🟢 TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
+        if (storeInfo && storeInfo.gemini_key) {
+            console.log(`[AI] Waxaa la isku dayayaa furaha gaarka ah ee dukaanka...`);
+            for (const modelName of preferredGeminiModels) {
                 try {
-                    console.log(`🔄 Iskudayga Master Key-ga ee Model-ka: ${modelName}...`);
-                    
-                    const fallbackModel = fallbackGenAI.getGenerativeModel({ 
+                    console.log(`🔄 [AI] Iskudayga Model-ka: ${modelName} (Furaha Dukaanka)`);
+                    const genAI = new GoogleGenerativeAI(storeInfo.gemini_key);
+                    const model = genAI.getGenerativeModel({ 
                         model: modelName,
                         systemInstruction: finalSystemPrompt
                     });
+    
+                    // 🟢 CUSBOONAYSIIN: Ku dar sawirka haddii uu jiro
+                    const promptParts = [];
+                    if (imageData) {
+                        promptParts.push({
+                            inlineData: {
+                                mimeType: 'image/jpeg', // Waxaan u qaadanaynaa inuu yahay JPEG
+                                data: imageData,
+                            },
+                        });
+                    }
+                    // Ku dar qoraalka weydiinta
+                    promptParts.push({ text: userPrompt });
 
-                    const fallbackChatSession = fallbackModel.startChat({
-                        history: formattedHistory
-                    });
-
-                    // 🟢 KUDARISTA CUSUB (SAWIRADA): Sidoo kale Master Key fallback waa inuu raaciyaa sawirka iyo qoraalka
-                    const result = await fallbackChatSession.sendMessage(promptParts);
+                    const chatSession = model.startChat({ history: formattedHistory });
+                    const result = await chatSession.sendMessage(promptParts);
                     aiResponseText = result.response.text();
                     
-                    console.log(`✅ Guul! Master Key-ga ayaa ku shaqeeyay Model-ka [${modelName}].`);
-                    break; 
+                    console.log(`✅ [AI] Guul! Furaha gaarka ah ee dukaanka ayaa shaqeeyay model-ka ${modelName}.`);
+                    return aiResponseText; // Return immediately on success with store key
 
-                } catch (fallbackError) {
-                    console.log(`⚠️ Master Key-ga Model-ka [${modelName}] wuu diiday.`);
-                    console.error(`   👉 SABABTA:`, fallbackError.message || fallbackError);
+                } catch (storeKeyError) {
+                    const errorMessage = storeKeyError.message || 'Cilad aan la aqoon';
+                    console.warn(`⚠️ [AI] Furaha gaarka ah ee dukaanka wuu fashilmay (${modelName}):`, errorMessage);
+                    // Do not return, let it fall through to master keys
                 }
             }
         }
 
-        // =========================================================
-        // 🟠 KORDHIN CUSUB: PLAN C - FALLBACK TO DEEPSEEK API
-        // =========================================================
+        // --- TALLAABADA 2-AAD: U gudub furayaasha guud haddii kii dukaanku fashilmo ama uusan jirin ---
         if (!aiResponseText) {
-            console.log('⚠️ Dhammaan noocyadii Gemini way fashilmeen. Waxaan u gudbaynaa Plan C (Master DeepSeek Key)...');
+            console.log('[AI] Furaha dukaanka wuu fashilmay ama ma jiro. Waxaan u gudbaynaa furayaasha guud (master keys)...');
+            
+            for (let i = 0; i < geminiApiKeys.length; i++) {
+                const apiKey = getNextApiKey(); // Get the next API key in round-robin
+                
+                for (const modelName of preferredGeminiModels) {
+                    try {
+                        console.log(`🔄 [AI] Iskudayga Gemini Model-ka: ${modelName} with API Key: ${apiKey.substring(0, 5)}...`);
+                        const genAI = new GoogleGenerativeAI(apiKey);
+                        const model = genAI.getGenerativeModel({ model: modelName, systemInstruction: finalSystemPrompt });
+        
+                        // 🟢 CUSBOONAYSIIN: Ku dar sawirka haddii uu jiro
+                        const promptParts = [];
+                        if (imageData) {
+                            promptParts.push({
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: imageData,
+                                },
+                            });
+                        }
+                        promptParts.push({ text: userPrompt });
+
+                        const chatSession = model.startChat({ history: formattedHistory });
+                        const result = await chatSession.sendMessage(promptParts);
+                        aiResponseText = result.response.text();
+                        
+                        console.log(`✅ [AI] Guul! Model-ka ${modelName} ayaa shaqeeyay.`);
+                        return aiResponseText; // Return on first successful Gemini response
+        
+                    } catch (geminiError) {
+                        const errorMessage = geminiError.message || 'Cilad aan la aqoon';
+                        console.error(`❌ [AI] Gemini Model-ka ${modelName} wuu fashilmay (${apiKey.substring(0, 5)}):`, errorMessage);
+                    }
+                }
+            }
+        }
+
+        // --- TALLAABADA 3-AAD: Fallback to DeepSeek if all Gemini attempts fail ---
+        if (!aiResponseText) {
+            const deepseekApiKey = process.env.MASTER_DEEPSEEK_API_KEY;
+            if (!deepseekApiKey) {
+                console.error('❌ CRITICAL: MASTER_DEEPSEEK_API_KEY not found in .env file. DeepSeek fallback not possible. Please add it to your .env file.');
+                throw new Error("No DeepSeek API key available for fallback.");
+            }
+
             try {
+                console.log('⚠️ [AI] Dhammaan noocyadii Gemini way fashilmeen. Waxaan u gudbaynaa DeepSeek...');
                 const deepseekClient = new OpenAI({
-                    apiKey: process.env.MASTER_DEEPSEEK_API_KEY,
+                    apiKey: deepseekApiKey,
                     baseURL: 'https://api.deepseek.com'
                 });
-
+                
                 const deepseekMessages = [{ role: "system", content: finalSystemPrompt }];
 
-                // Diyaarinta taariikhda sheekada ee DeepSeek
+                // Prepare chat history for DeepSeek
                 chatHistory.forEach(msg => {
                     deepseekMessages.push({
                         role: msg.role === 'ai' ? 'assistant' : 'user',
@@ -219,36 +199,40 @@ async function generateAIResponse(storeId, messageText, chatHistory = [], imageD
                     });
                 });
 
-                // 🟢 KUDARISTA CUSUB (SAWIRADA): Haddii uusan jirin qoraal balse uu jiro sawir kaliya, DeepSeek waa loo sharaxayaa
-                let deepseekUserContent = messageText;
-                if (!messageText && imageData) {
-                    deepseekUserContent = "[FARIIN SYSTEM]: Macaamiilka wuxuu soo diray sawir, balse adiga ma akhrin kartid sawirada. U sheeg macmiilka in aadan sawirka arki karin oo uu qoraal kuugu soo sheego waxa uu rabo.";
+                // 🟢 CUSBOONAYSIIN: Ku dar sawirka iyo qoraalka DeepSeek
+                const userMessageContent = [];
+                if (userPrompt) {
+                    userMessageContent.push({ type: "text", text: userPrompt });
+                }
+                if (imageData) {
+                    userMessageContent.push({
+                        type: "image_url",
+                        image_url: {
+                            url: `data:image/jpeg;base64,${imageData}`
+                        }
+                    });
+                }
+                if (userMessageContent.length > 0) {
+                    deepseekMessages.push({ role: "user", content: userMessageContent });
                 }
 
-                // Fariinta ugu dambaysa ee macmiilka
-                deepseekMessages.push({ role: "user", content: deepseekUserContent });
-
-                console.log(`🔄 Iskudayga Plan C ee DeepSeek...`);
+                console.log(`🔄 [AI] Iskudayga DeepSeek...`);
 
                 const completion = await deepseekClient.chat.completions.create({
-                    model: "deepseek-chat",
+                    model: "deepseek-chat", // Or "deepseek-coder" if preferred
                     messages: deepseekMessages,
                 });
 
                 aiResponseText = completion.choices[0].message.content;
-                console.log(`✅ Guul! Plan C (Master DeepSeek Key) ayaa shaqeeyay.`);
+                console.log(`✅ [AI] Guul! DeepSeek ayaa shaqeeyay.`);
+                return aiResponseText;
 
             } catch (deepseekError) {
-                console.log(`❌ Plan C (DeepSeek) sidoo kale wuu fashilmay.`);
-                console.error(`   👉 SABABTA:`, deepseekError.message || deepseekError);
+                const errorMessage = deepseekError.message || 'Cilad aan la aqoon';
+                console.error(`❌ [AI] DeepSeek sidoo kale wuu fashilmay:`, errorMessage);
+                throw new Error("Dhammaan nidaamyadii AI-ga way fashilmeen.");
             }
         }
-
-        if (!aiResponseText) {
-            throw new Error("Dhammaan noocyadii Gemini Model-s way wada fashilmeen, xataa Master Key-ga.");
-        }
-
-        return aiResponseText;
 
     } catch (error) {
         console.error('❌ Cilad weyn ayaa ka dhacday nidaamka AI-ga:', error.message);

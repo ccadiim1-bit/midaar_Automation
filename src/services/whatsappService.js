@@ -6,20 +6,41 @@ const {
     Browsers, 
     DisconnectReason,
     downloadMediaMessage // 🟢 KUDARISTA CUSUB (SAWIRADA): Soo dejinta sawirada
-} = require('@whiskeysockets/baileys'); 
+} = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
-const { generateAIResponse } = require('./aiService'); 
 const supabase = require('../config/supabaseClient'); // 🟢 KUDARISTA CUSUB: Si loo soo jiido nambarada shaqaalaha
 
 // Kaydka Bot-yada shaqaynaya si aysan isku dul kicin
 const activeSockets = {}; 
+// 🟢 KUDAR CUSUB: Ka hortagga fariimaha la soo celceliyo (Deduplication)
+// Waxaan ku kaydinaynaa aqoonsiga fariimaha la farsameeyay si aan laba jeer loo dirin
+const processedMessages = new Set();
+
+
+/**
+ * Exports a function to allow external services (like the BullMQ worker)
+ * to send messages through an active WhatsApp socket.
+ * @param {string} storeId - The ID of the store's socket to use.
+ * @param {string} recipient - The recipient's phone number (JID).
+ * @param {string} text - The message text to send.
+ */
+async function sendMessageFromHandler(storeId, recipient, text) {
+  const sock = activeSockets[storeId];
+  if (!sock) {
+    console.error(`[WHATSAPP] No active socket for store ${storeId} to send reply.`);
+    return;
+  }
+  await sock.sendMessage(recipient, { text });
+}
+
+let globalAddMessageToQueueFn = null; // Module-scoped variable to hold the queue function
+
 const stoppedBots = {}; 
-const userChatHistory = {}; // 🟢 KUDARISTA CUSUB: Kaydka lagu xafido silsiladda fariimaha (Chat History)
 const connectionStatus = {}; // 🟢 WAA LAGU DARAY: Halkan lagu kaydiyo xaalad kasta oo dukaan
 
-async function startWhatsApp(storeId) {
+async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessageToQueueFn
     stoppedBots[storeId] = false; 
 
     // HUBI IN BOT-KU HORAY U KACSAN YAHAY
@@ -27,6 +48,7 @@ async function startWhatsApp(storeId) {
         console.log(`⚠️ Bot-ka dukaanka (ID: ${storeId}) horay ayuu u shaqeynayay!`);
         return;
     }
+    globalAddMessageToQueueFn = addMessageToQueueFn; // Store the function for recursive calls
 
     console.log(`⏳ Waxaan isku xirayaa WhatsApp (Local Folder) - Store ID: ${storeId}...`);
 
@@ -97,7 +119,7 @@ async function startWhatsApp(storeId) {
             } else {
                 console.log('❌ Xiriirkii WhatsApp waa go\'ay. Dib ayaa loo kicinayaa 5 ilbiriqsi kadib...');
                 setTimeout(() => {
-                    startWhatsApp(storeId).catch(err => console.error("Cilad dib-u-kicinta:", err));
+                    startWhatsApp(storeId, globalAddMessageToQueueFn).catch(err => console.error("Cilad dib-u-kicinta:", err));
                 }, 5000); 
             }
         } else if (connection === 'open') {
@@ -126,6 +148,57 @@ async function startWhatsApp(storeId) {
         for (const msg of m.messages) {
             if (!msg.message || msg.key.fromMe) continue; 
 
+            // 🟢 KUDAR CUSUB: Ka hortagga fariimaha la soo celceliyo (Deduplication)
+            const messageId = msg.key.id;
+            if (processedMessages.has(messageId)) {
+                console.log(`[WHATSAPP] Iska indho-tir fariin soo noqotay (ID: ${messageId})`);
+                continue;
+            }
+
+            // Ku dar aqoonsiga fariinta kaydka, kana saar 5 daqiiqo kadib si aadan xusuusta u buuxin
+            processedMessages.add(messageId);
+            setTimeout(() => {
+                processedMessages.delete(messageId);
+            }, 5 * 60 * 1000); // 5 daqiiqo
+
+            // 🟢 CUSBOONAYSIIN: Hubi xadka fariimaha ka hor intaadan fariinta u dirin safka (queue)
+            try {
+                const { data: store, error } = await supabase
+                    .from('stores')
+                    .select('is_pro, monthly_message_count, message_limit, subscription_end_date')
+                    .eq('id', storeId)
+                    .single();
+
+                if (error) {
+                    console.error(`[WHATSAPP] Cilad soo jiidista xaaladda dukaanka ${storeId}:`, error.message);
+                    continue;
+                }
+
+                if (store) {
+                    const now = new Date();
+                    const endDate = store.subscription_end_date ? new Date(store.subscription_end_date) : null;
+
+                    // HUBINTA 1: Haddii uu Pro yahay, hubi in xirmadu aysan dhicin (waqti ahaan)
+                    if (store.is_pro && endDate && now > endDate) {
+                        console.log(`[WHATSAPP] Xirmadii Pro ee dukaanka ${storeId} way dhacday (waqtiga ayaa ka dhamaaday). Fariinta waa la iska indho-tiray.`);
+                        continue; // Jooji fariinta
+                    }
+
+                    // HUBINTA 2: Hubi xadka fariimaha (Tirada) ee dhammaan noocyada xirmooyinka
+                    if (store.monthly_message_count >= store.message_limit) {
+                        console.log(`[WHATSAPP] Xadkii fariimaha (tirada) waa la gaaray dukaanka ${storeId}. Fariinta waa la iska indho-tiray.`);
+                        continue; // Jooji fariinta
+                    }
+                } else {
+                     console.warn(`[WHATSAPP] Xogta dukaanka lama helin (ID: ${storeId}) markii la hubinayay xadka.`);
+                     continue;
+                }
+            } catch (dbError) {
+                console.error(`[WHATSAPP] Cilad weyn oo dhacday markii la hubinayay xadka fariimaha ${storeId}:`, dbError.message);
+                continue;
+            }
+
+
             const senderNumber = msg.key.remoteJid;
             
             // FILTER: Iska indho-tir Groups, Status, iyo Newsletters
@@ -140,7 +213,7 @@ async function startWhatsApp(storeId) {
 
             // 🟢 KUDARISTA CUSUB (SAWIRADA): Hubi haddii fariintu tahay sawir
             const isImageMessage = msg.message.imageMessage || msg.message.ephemeralMessage?.message?.imageMessage;
-            let imageData = null;
+            let imageBase64 = null;
 
             // 🟢 KUDARISTA CUSUB (SAWIRADA): Ku darso in uu soo qabto caption-ka sawirada
             const messageText = msg.message.conversation || 
@@ -150,141 +223,37 @@ async function startWhatsApp(storeId) {
                                 msg.message.imageMessage?.caption || 
                                 msg.message.ephemeralMessage?.message?.imageMessage?.caption || "";
 
-            // 🟢 KUDARISTA CUSUB (SAWIRADA): Haddii ay sawir tahay, soo deji oo u beddel Base64
+            // 🟢 CUSBOONAYSIIN: Haddii ay sawir tahay, soo deji oo u beddel Base64
             if (isImageMessage) {
                 try {
-                    console.log(`📸 [SAWIR] Laga soo diray: ${senderNumber}`);
-                    
                     const buffer = await downloadMediaMessage(
-                        msg, 
-                        'buffer', 
-                        {}, 
-                        { reuploadRequest: sock.updateMediaMessage }
-                    );
-                    
-                    const mimetype = msg.message.imageMessage?.mimetype || msg.message.ephemeralMessage?.message?.imageMessage?.mimetype || 'image/jpeg';
-                    
-                    imageData = {
-                        inlineData: {
-                            data: buffer.toString('base64'),
-                            mimeType: mimetype
+                        msg,
+                        'buffer',
+                        {},
+                        {
+                            logger: console,
+                            reuploadRequest: sock.updateMediaMessage
                         }
-                    };
-                } catch (err) {
-                    console.error("❌ Cilad soo dejinta sawirka:", err);
+                    );
+                    imageBase64 = buffer.toString('base64');
+                    console.log(`[WHATSAPP] Sawir waa la soo dejiyay oo loo beddelay Base64 (size: ${Math.round(imageBase64.length / 1024)} KB)`);
+                } catch (downloadError) {
+                    console.error('[WHATSAPP] Cilad soo dejinta sawirka:', downloadError);
+                    // Continue without image data if download fails
                 }
             }
 
-            // 🟢 KUDARISTA CUSUB (SAWIRADA): Hubi in qoraal amaba sawir uu jiro si AI-ga loogu diro
-            if (messageText || imageData) {
-                console.log(`\n📩 [MACAAMIIL] - Laga soo diray: ${senderNumber}`);
-                if (messageText) console.log(`💬 Wuxuu yiri: ${messageText}`);
-
-                // 🟢 KORDHIN: Xusuusta waxaa laga dhigay 10 fariin si uusan u hilmaamin magaca alaabta
-                if (!userChatHistory[storeId]) userChatHistory[storeId] = {};
-                if (!userChatHistory[storeId][senderNumber]) userChatHistory[storeId][senderNumber] = [];
-
-                // Ha ku darin Base64 image-ka xusuusta kaydka si aanu memory-ga u buuxin, qoraalka kaliya kaydi
-                if (messageText) {
-                    userChatHistory[storeId][senderNumber].push({ role: 'user', text: messageText });
-                    if (userChatHistory[storeId][senderNumber].length > 10) userChatHistory[storeId][senderNumber].shift();
-                }
-
+            // U dir fariinta safka (queue) haddii ay qoraal leedahay AMA ay sawir tahay
+            if (messageText || imageBase64) {
                 try {
-                    // 🟢 KUDARISTA CUSUB (SAWIRADA): 'imageData' ayaa lagu daray function-ka
-                    const aiResponse = await generateAIResponse(storeId, messageText, userChatHistory[storeId][senderNumber], imageData);
-
-                    if (aiResponse && activeSockets[storeId]) {
-                        
-                        let finalResponseToUser = aiResponse;
-
-                        // 🟢 NIDAAMKA CUSUB EE QABASHADA DALABKA (ORDER TRIGGERED)
-                        if (aiResponse.includes('ORDER_TRIGGERED')) {
-                            console.log(`🚨 DALAB CUSUB AYAA LA QABTAY! Waxaan ku wareejinaynaa Admin/Delivery...`);
-
-                            // 1. Soo jiido nambarada shaqaalaha ee dukaankan
-                            const { data: storeInfo, error } = await supabase
-                                .from('stores')
-                                .select('admin_number, delivery_numbers')
-                                .eq('id', storeId)
-                                .single();
-
-                            if (error) console.error("⚠️ Cilad soo jiidista nambarada Delivery-ga:", error.message);
-
-                            const dalabkaXogtiisa = aiResponse.replace('ORDER_TRIGGERED:', '').trim();
-                            
-                            // 🟢 XALINTA CILADDA: Kala bixi xogta uu AI-gu soo saaray
-                            const xogtaParts = dalabkaXogtiisa.split('|').map(item => item.trim());
-                            
-                            // Default: Nambarka WhatsApp-ka ee asalka ah (Haddii uu shaqayn waayo nambarka uu qoray)
-                            let finalPhoneLink = senderNumber.split('@')[0].split(':')[0].replace(/\D/g, ''); 
-
-                            // Hubi in AI-gu soo saaray dhamaan xogtii (Magaca | Nambarka | Magaalada | Alaabta)
-                            if (xogtaParts.length >= 4) {
-                                // Soo qabo nambarka uu gacantiisa ku soo qortay (Qaybta 2aad) oo ka saar xarfaha
-                                let typedNumber = xogtaParts[1].replace(/\D/g, ''); 
-                                
-                                // Hubi in nambarku uusan laba jeer isku dhufmin (Duplication Check)
-                                if (typedNumber.length % 2 === 0 && typedNumber.length >= 14) {
-                                    const halfLength = typedNumber.length / 2;
-                                    const firstHalf = typedNumber.substring(0, halfLength);
-                                    const secondHalf = typedNumber.substring(halfLength);
-                                    
-                                    if (firstHalf === secondHalf) {
-                                        typedNumber = firstHalf; 
-                                    }
-                                }
-
-                                if (typedNumber.length >= 7) { 
-                                    // 🟢 MA JIRO '252' lagu darayo! Si toos ah u qaado nambarka uu qofku soo qoray.
-                                    finalPhoneLink = typedNumber;
-                                    xogtaParts[1] = typedNumber; // Dib ugu sax xogta soo baxaysa
-                                }
-                            }
-                            
-                            const cleanedDalabXogta = xogtaParts.join(' | ');
-
-                            const ogeysiisMsg = `🚨 *DALAB CUSUB (NEW ORDER)* 🚨\n\n📌 *Xogta Dalabka:* \n${cleanedDalabXogta}\n\n📞 *Macmiilka:* wa.me/${finalPhoneLink}\n\n*Fadlan adiga la wareeg oo u jawaab macmiilkan.*`;
-
-                            let dalabWaaLaDiray = false;
-
-                            // 2. U dir Admin-ka
-                            if (storeInfo && storeInfo.admin_number) {
-                                const adminJid = `${storeInfo.admin_number.replace(/\D/g, '')}@s.whatsapp.net`;
-                                await sock.sendMessage(adminJid, { text: ogeysiisMsg });
-                                dalabWaaLaDiray = true;
-                            }
-
-                            // 3. U dir Delivery-ga (Haddii uu yahay nambar ka duwan Admin-ka)
-                            if (storeInfo && storeInfo.delivery_numbers) {
-                                const deliveryJid = `${storeInfo.delivery_numbers.replace(/\D/g, '')}@s.whatsapp.net`;
-                                if (deliveryJid !== (`${storeInfo?.admin_number?.replace(/\D/g, '')}@s.whatsapp.net`)) {
-                                    await sock.sendMessage(deliveryJid, { text: ogeysiisMsg });
-                                    dalabWaaLaDiray = true;
-                                }
-                            }
-
-                            // 4. Macmiilka fariin gabagabo ah u dir
-                            if (dalabWaaLaDiray) {
-                                finalResponseToUser = "✅ Dalabkaaga si guul leh ayaa loo diiwaangeliyay! Inyar kadib waxaa kugula soo xiriiraya qaybta keenista (Delivery) si ay kuugu xaqiijiyaan.";
-                            } else {
-                                finalResponseToUser = "✅ Dalabkaaga waa la qoray, xafiiska ayaana kula soo xiriiri doona waqti dhow.";
-                            }
-
-                            await sock.sendMessage(senderNumber, { text: finalResponseToUser });
-
-                        } else {
-                            // Haddii aysan ahayn dalab gabagabo ah, u jawaab sidii caadiga ahayd
-                            await sock.sendMessage(senderNumber, { text: finalResponseToUser });
-                            console.log('✅ AI-gu wuxuu si guul leh u diray jawaabta!');
-                        }
-
-                        // 🟢 KORDHIN: Kaydi jawaabta AI-ga, sidoo kalena ka dhig 10 fariin ugu badnaan
-                        userChatHistory[storeId][senderNumber].push({ role: 'ai', text: finalResponseToUser });
-                        if (userChatHistory[storeId][senderNumber].length > 10) userChatHistory[storeId][senderNumber].shift();
-                    }
-                } catch (err) {
-                    console.error('❌ Cilad dirista jawaabta AI-ga:', err);
+                    await addMessageToQueueFn({ // Use the injected function
+                        storeId: storeId,
+                        customerPhone: senderNumber,
+                        messageBody: messageText,
+                        imageData: imageBase64, // 🟢 WAA LAGU DARAY: U gudbi sawirka
+                    });
+                } catch (queueError) {
+                    console.error(`[WHATSAPP] Failed to add message to queue for store ${storeId}:`, queueError);
                 }
             }
         }
@@ -318,7 +287,7 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
         // Haddii uusan shaqaynayn (bot-ku xiran yahay), waa inaan marka hore kicino
         if (!sock) {
             console.log("Kicinta bot-ka si loo helo Pairing Code...");
-            await startWhatsApp(storeId);
+            await startWhatsApp(storeId, globalAddMessageToQueueFn);
             sock = activeSockets[storeId];
             
             // Sug 2 ilbiriqsi si uu ula xiriiro server-rada WhatsApp-ka
@@ -342,4 +311,4 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
         return null;
     }
 }
-module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, requestWhatsAppPairingCode };
+module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, requestWhatsAppPairingCode, sendMessageFromHandler };

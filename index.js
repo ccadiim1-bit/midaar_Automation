@@ -1,4 +1,5 @@
 // index.js
+require('dotenv').config(); // 🟢 WAA INUU NOQDAA SAFKA UGU HORREEYA
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -10,6 +11,7 @@ const authRoutes = require('./src/routes/authRoutes.js');
 const productRoutes = require('./src/routes/productRoutes.js');
 const whatsappRoutes = require('./src/routes/whatsappRoutes.js');
 const settingsRoutes = require('./src/routes/settingsRoutes.js');
+const paymentRoutes = require('./src/routes/paymentRoutes.js');
 
 const app = express();
 const PORT = 3000;
@@ -30,6 +32,7 @@ app.use('/', authRoutes); // Auth routes-ka qaar waxay isticmaalaan '/'
 app.use('/api/products', productRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Server-ka halkan ayuu ka kacayaa waana inuu ugu dambeeyaa
 app.listen(PORT, () => {

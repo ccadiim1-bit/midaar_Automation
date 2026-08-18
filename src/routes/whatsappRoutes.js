@@ -1,22 +1,16 @@
 // src/routes/whatsappRoutes.js
 const express = require('express');
 const router = express.Router();
+const { addMessageToQueue } = require('../services/queueService'); // Import addMessageToQueue
+const { isLoggedIn } = require('../middleware/authMiddleware.js'); // 🟢 WAA LAGU DARAY: Middleware la wadaago
 const { startWhatsApp, getStoreConnectionState, requestWhatsAppPairingCode } = require('../services/whatsappService.js');
-
-// Middleware to check if user is logged in
-function isLoggedIn(req, res, next) {
-    if (req.session.isLoggedIn && req.session.storeData) {
-        return next();
-    }
-    res.status(401).send({ error: "Fadlan soo gal nidaamka" });
-}
 
 router.use(isLoggedIn);
 
 router.post('/start', (req, res) => {
     const storeId = req.session.storeData.id;
     
-    startWhatsApp(storeId).catch(err => {
+    startWhatsApp(storeId, addMessageToQueue).catch(err => { // Pass addMessageToQueue
         console.error(`❌ Cilad ayaa ka dhacday kicinita Bot-ka dukaanka ${storeId}:`, err.message || err);
     });
     

@@ -7,14 +7,7 @@ const registerPage = require('../pages/register.js');
 const dashboardPage = require('../pages/dashboard.js');
 const settingsPage = require('../pages/settings.js');
 const { getStoreConnectionState } = require('../services/whatsappService.js');
-
-// Middleware to check if user is logged in
-function isLoggedIn(req, res, next) {
-    if (req.session.isLoggedIn) {
-        return next();
-    }
-    res.redirect('/login');
-}
+const { isLoggedIn } = require('../middleware/authMiddleware.js'); // 🟢 WAA LAGU DARAY: Middleware la wadaago
 
 router.get('/', (req, res) => {
     res.redirect('/login');
@@ -44,24 +37,38 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
         const botState = getStoreConnectionState(storeId);
         const isBotConnected = botState.status === 'connected';
 
-        const { data: products, error } = await supabase
+        // Fetch products
+        const { data: products, error: productsError } = await supabase
             .from('products')
             .select('*')
             .eq('store_id', storeId)
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error("Cilad dhanka soo jiidista alaabta ah:", error.message);
-            return res.send(dashboardPage([], isBotConnected));
+        if (productsError) {
+            console.error("Cilad dhanka soo jiidista alaabta ah:", productsError.message);
+            // Don't return, just render with empty products array
         }
 
-        // U gudbi xaaladda bot-ka bogga
-        res.send(dashboardPage(products, isBotConnected));
+        // 🟢 TASK 4: Fetch store subscription status
+        const { data: storeStatus, error: statusError } = await supabase
+            .from('stores')
+            .select('is_pro, monthly_message_count, message_limit, plan_type')
+            .eq('id', storeId)
+            .single();
+
+        if (statusError) {
+            console.error("Cilad soo jiidista xaaladda isdiiwaangelinta:", statusError.message);
+            // Render with default/fallback values if status fetch fails
+            const defaultStatus = { is_pro: false, monthly_message_count: 0, message_limit: 50, plan_type: 'free' };
+            return res.send(dashboardPage(products || [], isBotConnected, defaultStatus));
+        }
+
+        // U gudbi xaaladda bot-ka iyo xogta isdiiwaangelinta bogga
+        res.send(dashboardPage(products || [], isBotConnected, storeStatus));
 
     } catch (err) {
         console.error("Cilad Server-ka ah:", err);
-        // U gudbi xaalad default ah haddii cilad server dhacdo
-        res.send(dashboardPage([], false));
+        res.send(dashboardPage([], false, false, 0));
     }
 });
 

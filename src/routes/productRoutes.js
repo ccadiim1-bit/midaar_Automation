@@ -5,16 +5,12 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const supabase = require('../config/supabaseClient.js');
+const { isLoggedIn } = require('../middleware/authMiddleware.js'); // 🟢 WAA LAGU DARAY: Middleware la wadaago
 
-const upload = multer({ dest: 'uploads/' });
-
-// Middleware to check if user is logged in
-function isLoggedIn(req, res, next) {
-    if (req.session.isLoggedIn && req.session.storeData) {
-        return next();
-    }
-    res.redirect('/login');
-}
+const upload = multer({
+    dest: 'uploads/',
+    limits: { fileSize: 5 * 1024 * 1024 } // 5 MB file size limit
+});
 
 router.use(isLoggedIn);
 

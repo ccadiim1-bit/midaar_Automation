@@ -8,6 +8,7 @@ const {
     downloadMediaMessage // 🟢 KUDARISTA CUSUB (SAWIRADA): Soo dejinta sawirada
 } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
+const pino = require('pino'); // 🟢 WAA LAGU DARAY: Si loo maareeyo qoraallada terminal-ka
 const fs = require('fs');
 const path = require('path');
 const supabase = require('../config/supabaseClient'); // 🟢 KUDARISTA CUSUB: Si loo soo jiido nambarada shaqaalaha
@@ -67,6 +68,9 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`ℹ️ WhatsApp Web Version: ${version.join('.')} (Is Latest: ${isLatest})`);
 
+    // 🟢 CUSBOONAYSIIN: Deji logger si loo qariyo qoraallada aan muhiimka ahayn
+    const logger = pino({ level: 'warn' }); // Kaliya soo bandhig digniinaha (warnings) iyo ciladaha (errors)
+
     const sock = makeWASocket({
         version, 
         auth: state,
@@ -75,7 +79,8 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
         syncFullHistory: false,
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 25000
+        keepAliveIntervalMs: 25000,
+        logger // 🟢 WAA LAGU DARAY: U gudbi logger-ka Baileys
     });
 
     // Kaydi Socket-kan si loo ogaado inuu shaqaynayo
@@ -151,7 +156,7 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
             // 🟢 KUDAR CUSUB: Ka hortagga fariimaha la soo celceliyo (Deduplication)
             const messageId = msg.key.id;
             if (processedMessages.has(messageId)) {
-                console.log(`[WHATSAPP] Iska indho-tir fariin soo noqotay (ID: ${messageId})`);
+                // console.log(`[WHATSAPP] Iska indho-tir fariin soo noqotay (ID: ${messageId})`);
                 continue;
             }
 
@@ -236,7 +241,7 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                         }
                     );
                     imageBase64 = buffer.toString('base64');
-                    console.log(`[WHATSAPP] Sawir waa la soo dejiyay oo loo beddelay Base64 (size: ${Math.round(imageBase64.length / 1024)} KB)`);
+                    // console.log(`[WHATSAPP] Sawir waa la soo dejiyay oo loo beddelay Base64 (size: ${Math.round(imageBase64.length / 1024)} KB)`);
                 } catch (downloadError) {
                     console.error('[WHATSAPP] Cilad soo dejinta sawirka:', downloadError);
                     // Continue without image data if download fails

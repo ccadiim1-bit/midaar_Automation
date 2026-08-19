@@ -4,41 +4,12 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { OpenAI } = require('openai'); // Import OpenAI for DeepSeek fallback
 require('dotenv').config(); // Ensure dotenv is loaded
 
-/**
- * 1. Load multiple Gemini API keys from .env file (e.g., GEMINI_KEY_1, GEMINI_KEY_2).
- * This allows for load balancing and avoids rate limits.
- */
-const geminiApiKeys = Object.keys(process.env)
-  .filter(key => key.startsWith('GEMINI_KEY_'))
-  .map(key => process.env[key]);
-
-if (geminiApiKeys.length === 0) {
-  console.error('❌ CRITICAL: No GEMINI_KEY_... found in .env file. AI service will not work.');
-  // Consider exiting or throwing here if AI is absolutely essential
-}
-
-let currentApiKeyIndex = 0;
-
-/**
- * 2. Implements a round-robin mechanism to rotate through the available API keys.
- * @returns {string} The next API key to use.
- */
-function getNextApiKey() {
-  if (geminiApiKeys.length === 0) {
-    throw new Error("No Gemini API keys available.");
-  }
-  // Ensure we don't go out of bounds if keys are removed or changed dynamically (unlikely but safe)
-  if (currentApiKeyIndex >= geminiApiKeys.length) {
-    currentApiKeyIndex = 0;
-  }  const key = geminiApiKeys[currentApiKeyIndex];
-  currentApiKeyIndex = (currentApiKeyIndex + 1) % geminiApiKeys.length;
-  console.log(`[AI] Using API Key index: ${currentApiKeyIndex}`);
-  return key;
-}
-
 // Preferred Gemini models to try in order of preference/cost
 const preferredGeminiModels = [
-    "gemini-flash-latest",
+    "gemini-flash-latest", // Fast and cheap
+    "Gemini 3.7 Flash",   // More powerful, if flash fails
+    "gemini-3.5-pro",  
+    "gemini-2.5-flash-lite"        // Older but stable fallback
 ];
 
 async function generateAIResponse(storeId, userPrompt, productsContext, chatHistory = [], imageData = null) {
@@ -96,10 +67,10 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
         
         // --- 🟢 TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
         if (storeInfo && storeInfo.gemini_key) {
-            console.log(`[AI] Waxaa la isku dayayaa furaha gaarka ah ee dukaanka...`);
+            // console.log(`[AI] Waxaa la isku dayayaa furaha gaarka ah ee dukaanka...`);
             for (const modelName of preferredGeminiModels) {
                 try {
-                    console.log(`🔄 [AI] Iskudayga Model-ka: ${modelName} (Furaha Dukaanka)`);
+                    // console.log(`🔄 [AI] Iskudayga Model-ka: ${modelName} (Furaha Dukaanka)`);
                     const genAI = new GoogleGenerativeAI(storeInfo.gemini_key);
                     const model = genAI.getGenerativeModel({ 
                         model: modelName,
@@ -123,7 +94,7 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                     const result = await chatSession.sendMessage(promptParts);
                     aiResponseText = result.response.text();
                     
-                    console.log(`✅ [AI] Guul! Furaha gaarka ah ee dukaanka ayaa shaqeeyay model-ka ${modelName}.`);
+                    // console.log(`✅ [AI] Guul! Furaha gaarka ah ee dukaanka ayaa shaqeeyay model-ka ${modelName}.`);
                     return aiResponseText; // Return immediately on success with store key
 
                 } catch (storeKeyError) {
@@ -134,41 +105,62 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
             }
         }
 
-        // --- TALLAABADA 2-AAD: U gudub furayaasha guud haddii kii dukaanku fashilmo ama uusan jirin ---
+        // --- TALLAABADA 2-AAD: U gudub OpenRouter haddii kii dukaanku fashilmo ama uusan jirin ---
         if (!aiResponseText) {
-            console.log('[AI] Furaha dukaanka wuu fashilmay ama ma jiro. Waxaan u gudbaynaa furayaasha guud (master keys)...');
-            
-            for (let i = 0; i < geminiApiKeys.length; i++) {
-                const apiKey = getNextApiKey(); // Get the next API key in round-robin
-                
-                for (const modelName of preferredGeminiModels) {
-                    try {
-                        console.log(`🔄 [AI] Iskudayga Gemini Model-ka: ${modelName} with API Key: ${apiKey.substring(0, 5)}...`);
-                        const genAI = new GoogleGenerativeAI(apiKey);
-                        const model = genAI.getGenerativeModel({ model: modelName, systemInstruction: finalSystemPrompt });
-        
-                        // 🟢 CUSBOONAYSIIN: Ku dar sawirka haddii uu jiro
-                        const promptParts = [];
-                        if (imageData) {
-                            promptParts.push({
-                                inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: imageData,
-                                },
-                            });
-                        }
-                        promptParts.push({ text: userPrompt });
+            const openRouterApiKey = process.env.OPENROUTER_KEY_1;
+            if (!openRouterApiKey) {
+                console.warn('⚠️ [AI] OPENROUTER_KEY_1 not found in .env. Skipping OpenRouter fallback.');
+            } else {
+                const openRouterModelsToTry = [
+                   'google/gemini-3.7-flash', // Corrected model name
+                ];
 
-                        const chatSession = model.startChat({ history: formattedHistory });
-                        const result = await chatSession.sendMessage(promptParts);
-                        aiResponseText = result.response.text();
-                        
-                        console.log(`✅ [AI] Guul! Model-ka ${modelName} ayaa shaqeeyay.`);
-                        return aiResponseText; // Return on first successful Gemini response
-        
-                    } catch (geminiError) {
-                        const errorMessage = geminiError.message || 'Cilad aan la aqoon';
-                        console.error(`❌ [AI] Gemini Model-ka ${modelName} wuu fashilmay (${apiKey.substring(0, 5)}):`, errorMessage);
+                const openRouterClient = new OpenAI({
+                    apiKey: openRouterApiKey,
+                    baseURL: 'https://openrouter.ai/api/v1'
+                });
+
+                const openRouterMessages = [{ role: "system", content: finalSystemPrompt }];
+
+                // Prepare chat history
+                chatHistory.forEach(msg => {
+                    openRouterMessages.push({
+                        role: msg.role === 'ai' ? 'assistant' : 'user',
+                        content: msg.text
+                    });
+                });
+
+                // Prepare user message with image
+                const userMessageContent = [];
+                if (userPrompt) {
+                    userMessageContent.push({ type: "text", text: userPrompt });
+                }
+                if (imageData) {
+                    userMessageContent.push({
+                        type: "image_url",
+                        image_url: { url: `data:image/jpeg;base64,${imageData}` }
+                    });
+                }
+                if (userMessageContent.length > 0) {
+                    openRouterMessages.push({ role: "user", content: userMessageContent });
+                }
+
+                for (const model of openRouterModelsToTry) {
+                    try {
+                        console.log(`[AI] Waxaan isku dayeynaa OpenRouter (${model})...`);
+                        const completion = await openRouterClient.chat.completions.create({
+                            model: model,
+                            messages: openRouterMessages,
+                        });
+
+                        aiResponseText = completion.choices[0].message.content;
+                        if (aiResponseText) {
+                            return aiResponseText; // Guul!
+                        }
+                    } catch (openRouterError) {
+                        const errorMessage = openRouterError.message || 'Cilad aan la aqoon';
+                        console.error(`❌ [AI] OpenRouter (${model}) wuu fashilmay:`, errorMessage);
+                        // U gudub model-ka xiga
                     }
                 }
             }
@@ -216,7 +208,7 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                     deepseekMessages.push({ role: "user", content: userMessageContent });
                 }
 
-                console.log(`🔄 [AI] Iskudayga DeepSeek...`);
+                // console.log(`🔄 [AI] Iskudayga DeepSeek...`);
 
                 const completion = await deepseekClient.chat.completions.create({
                     model: "deepseek-chat", // Or "deepseek-coder" if preferred
@@ -224,7 +216,7 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                 });
 
                 aiResponseText = completion.choices[0].message.content;
-                console.log(`✅ [AI] Guul! DeepSeek ayaa shaqeeyay.`);
+                // console.log(`✅ [AI] Guul! DeepSeek ayaa shaqeeyay.`);
                 return aiResponseText;
 
             } catch (deepseekError) {

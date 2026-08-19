@@ -225,7 +225,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                                 <h4 class="text-lg font-semibold text-purple-400">Xirmo Toddobaadle</h4>
                                 <p class="text-4xl font-bold my-4 text-white">$4.99</p>
                                 <ul class="text-slate-400 text-sm space-y-2 flex-grow">
-                                    <li><b class="text-white">500</b> Fariimood</li>
+                                    <li><b class="text-white">100</b> Fariimood</li>
                                     <li>Full AI Capabilities</li>
                                     <li>7 Maalmood oo Adeeg ah</li>
                                 </ul>
@@ -238,7 +238,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                                 <h4 class="text-lg font-semibold text-purple-300">Xirmo Bille</h4>
                                 <p class="text-4xl font-bold my-4 text-white">$9.99</p>
                                 <ul class="text-slate-300 text-sm space-y-2 flex-grow">
-                                    <li><b class="text-white">5,000</b> Fariimood</li>
+                                    <li><b class="text-white">1,000</b> Fariimood</li>
                                     <li>Full AI Capabilities</li>
                                     <li>30 Maalmood oo Adeeg ah</li>
                                 </ul>

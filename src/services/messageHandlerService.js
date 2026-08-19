@@ -66,7 +66,7 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
       const greetingResponse = store.greeting_message || "Salaam! Sideen kuu caawin karaa maanta?";
       await sendMessageFromHandler(storeId, customerPhone, greetingResponse);
       await logAndIncrement(storeId, customerPhone, messageBody, greetingResponse, 'greeting');
-      console.log(`[HANDLER] Responded with a greeting to ${customerPhone} for store ${storeId}.`);
+      // console.log(`[HANDLER] Responded with a greeting to ${customerPhone} for store ${storeId}.`);
       return;
     }
 
@@ -84,7 +84,7 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
         if (foundKeyword) {
           await sendMessageFromHandler(storeId, customerPhone, faq.answer);
           await logAndIncrement(storeId, customerPhone, messageBody, faq.answer, 'faq');
-          console.log(`[HANDLER] Responded with a cached FAQ to ${customerPhone} for store ${storeId}.`);
+        // console.log(`[HANDLER] Responded with a cached FAQ to ${customerPhone} for store ${storeId}.`);
           return;
         }
       }
@@ -104,7 +104,7 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
   }
 
   // --- TIER 3: AI Fallback ---
-  console.log(`[HANDLER] No greeting or FAQ match. Falling back to AI for store ${storeId}.`);
+  // console.log(`[HANDLER] No greeting or FAQ match. Falling back to AI for store ${storeId}.`);
   const { data: products, error: productError } = await supabase
     .from('products')
     .select('product_name, product_price, product_desc')
@@ -131,7 +131,7 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
 
   await sendMessageFromHandler(storeId, customerPhone, aiResponse);
   await logAndIncrement(storeId, customerPhone, messageBody, aiResponse, 'ai');
-  console.log(`[HANDLER] Responded with AI to ${customerPhone} for store ${storeId}.`);
+  // console.log(`[HANDLER] Responded with AI to ${customerPhone} for store ${storeId}.`);
 }
 
 module.exports = { handleIncomingMessage };

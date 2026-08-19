@@ -91,7 +91,7 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
             return res.status(400).send('Missing SMS text');
         }
 
-        console.log(`[PAYMENT] Received SMS from ${from}: ${text}`);
+        // console.log(`[PAYMENT] Received SMS from ${from}: ${text}`);
 
         let paymentInfo;
         if (from === '192') {
@@ -126,11 +126,11 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
         if (amount >= 4.90 && amount <= 5.00) {
             planType = 'weekly';
             subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 7);
-            messageLimit = 500; // Xirmada Toddobaadlaha: 500 fariin
+            messageLimit = 100; // Xirmada Toddobaadlaha: 100 fariin
         } else if (amount >= 9.90 && amount <= 10.00) {
             planType = 'monthly';
             subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
-            messageLimit = 5000; // Xirmada Bishii: 5,000 fariin
+            messageLimit = 1000; // Xirmada Bishii: 1,000 fariin
         } else if (amount >= 99.90 && amount <= 100.00) {
             planType = 'premium';
             subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);

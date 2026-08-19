@@ -28,7 +28,7 @@ async function addMessageToQueue(data) {
       delay: 1000, // Start with a 1-second delay, then increase exponentially
     },
   });
-  console.log(`[QUEUE] Added message for ${data.customerPhone} to the queue.`);
+  // console.log(`[QUEUE] Added message for ${data.customerPhone} to the queue.`);
 }
 
 /**
@@ -39,7 +39,7 @@ const worker = new Worker(
   async (job) => {
     const { storeId, customerPhone, messageBody, imageData } = job.data;
     const logMessage = imageData ? `sawir leh (image)` : `qoraal ah (text)`;
-    console.log(`[WORKER] Processing message (${logMessage}) for ${customerPhone} from store ${storeId}`);
+    // console.log(`[WORKER] Processing message (${logMessage}) for ${customerPhone} from store ${storeId}`);
     await messageHandlerService.handleIncomingMessage(storeId, customerPhone, messageBody, imageData);
   },
   {
@@ -53,7 +53,7 @@ const worker = new Worker(
 );
 
 // Worker event listeners for monitoring and debugging
-worker.on('completed', (job) => console.log(`[WORKER] Job ${job.id} completed.`));
+worker.on('completed', (job) => { /* console.log(`[WORKER] Job ${job.id} completed.`); */ });
 worker.on('failed', (job, err) => console.error(`[WORKER] Job ${job.id} failed: ${err.message}`));
 
 console.log('[QUEUE] WhatsApp message worker started successfully.');

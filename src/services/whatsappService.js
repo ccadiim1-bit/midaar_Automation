@@ -1,17 +1,21 @@
 // src/services/whatsappService.js
 const { 
     default: makeWASocket, 
-    useMultiFileAuthState, 
+    // useMultiFileAuthState, // Waa laga saaray si loogu beddelo MongoDB
     fetchLatestBaileysVersion, 
     Browsers, 
     DisconnectReason,
-    downloadMediaMessage // 🟢 KUDARISTA CUSUB (SAWIRADA): Soo dejinta sawirada
+    downloadMediaMessage, // 🟢 KUDARISTA CUSUB (SAWIRADA): Soo dejinta sawirada
+    BufferJSON, // 🟢 KUDARISTA CUSUB: Si loogu beddelo xogta DB-ga
+    proto, // 🟢 KUDARISTA CUSUB: Si loogu beddelo xogta DB-ga
+    initAuthCreds // 🟢 KUDARISTA CUSUB: Si loo abuuro xogta bilowga ah ee session-ka
 } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const pino = require('pino'); // 🟢 WAA LAGU DARAY: Si loo maareeyo qoraallada terminal-ka
-const fs = require('fs');
-const path = require('path');
+// const fs = require('fs'); // Waa laga saaray, looma baahna kaydinta MongoDB
+// const path = require('path'); // Waa laga saaray, looma baahna kaydinta MongoDB
 const supabase = require('../config/supabaseClient'); // 🟢 KUDARISTA CUSUB: Si loo soo jiido nambarada shaqaalaha
+const { connectToMongo } = require('../config/mongoClient'); // 🟢 KUDARISTA CUSUB: Isku xirka MongoDB
 
 // Kaydka Bot-yada shaqaynaya si aysan isku dul kicin
 const activeSockets = {}; 
@@ -41,6 +45,83 @@ let globalAddMessageToQueueFn = null; // Module-scoped variable to hold the queu
 const stoppedBots = {}; 
 const connectionStatus = {}; // 🟢 WAA LAGU DARAY: Halkan lagu kaydiyo xaalad kasta oo dukaan
 
+// 🟢 SHAQADA CUSUB: Kaydinta xogta WhatsApp-ka ee MongoDB
+const useMongoDBAuthState = async (storeId) => {
+    const db = await connectToMongo();
+    const collection = db.collection('whatsapp_sessions');
+
+    // Shaqo yar oo abuuraysa fure u gaar ah dukaankan
+    const storeKey = (key) => `${storeId}_${key}`;
+
+    const writeData = async (data, id) => {
+        const convertedData = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
+        // Isticmaal furaha gaarka ah ee dukaankan
+        return collection.replaceOne({ _id: storeKey(id) }, { _id: storeKey(id), session: convertedData }, { upsert: true });
+    };
+
+    const readData = async (id) => {
+        // Isticmaal furaha gaarka ah ee dukaankan
+        const doc = await collection.findOne({ _id: storeKey(id) });
+        if (!doc) return null;
+        // Xogta waa in dib loogu soo celiyaa qaabkii ay ahayd
+        return JSON.parse(JSON.stringify(doc.session), BufferJSON.reviver);
+    };
+
+    const removeData = async (id) => {
+        try {
+            // Isticmaal furaha gaarka ah ee dukaankan
+            await collection.deleteOne({ _id: storeKey(id) });
+        } catch (error) {
+            console.error(`[MONGO_AUTH] Cilad tirtirista session-ka ${storeKey(id)}:`, error);
+        }
+    };
+
+    // Shaqadan waxay tirtiraysaa dhammaan xogta session-ka ee dukaankan
+    const clearStoreData = async () => {
+        try {
+            await collection.deleteMany({ _id: new RegExp(`^${storeId}_`) });
+            console.log(`[MONGO_AUTH] Dhammaan xogtii session-ka ee dukaanka ${storeId} waa la tirtiray.`);
+        } catch (error) {
+            console.error(`[MONGO_AUTH] Cilad tirtirista xogta dukaanka ${storeId}:`, error);
+        }
+    };
+
+    // 🟢 CUSBOONAYSIIN: Isticmaal shaqada saxda ah ee abuurista xogta bilowga ah
+    const creds = (await readData('creds')) || initAuthCreds();
+
+    return {
+        state: {
+            creds,
+            keys: {
+                get: async (type, ids) => {
+                    const data = {};
+                    await Promise.all(ids.map(async (id) => {
+                        let value = await readData(`${type}-${id}`);
+                        if (type === 'app-state-sync-key' && value) {
+                            value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                        }
+                        data[id] = value;
+                    }));
+                    return data;
+                },
+                set: async (data) => {
+                    const tasks = [];
+                    for (const category in data) {
+                        for (const id in data[category]) {
+                            const value = data[category][id];
+                            const key = `${category}-${id}`;
+                            tasks.push(value ? writeData(value, key) : removeData(key));
+                        }
+                    }
+                    await Promise.all(tasks);
+                },
+            },
+        },
+        saveCreds: () => writeData(creds, 'creds'),
+        clearStoreData, // Shaqada tirtiraysa xogta marka la gooyo
+    };
+};
+
 async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessageToQueueFn
     stoppedBots[storeId] = false; 
 
@@ -51,18 +132,12 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     }
     globalAddMessageToQueueFn = addMessageToQueueFn; // Store the function for recursive calls
 
-    console.log(`⏳ Waxaan isku xirayaa WhatsApp (Local Folder) - Store ID: ${storeId}...`);
+    console.log(`⏳ Waxaan isku xirayaa WhatsApp (Kaydka: MongoDB) - Store ID: ${storeId}...`);
 
     connectionStatus[storeId] = { qr: '', status: 'connecting' }; // 🟢 WAA LAGU DARAY
 
-    const authFolderPath = path.join(__dirname, `../../auth_info/store_${storeId}`);
-    
-    // Samee galka haddii uusan horay u jirin si uusan server-ku u dhicin
-    if (!fs.existsSync(authFolderPath)) {
-        fs.mkdirSync(authFolderPath, { recursive: true });
-    }
-
-    const { state, saveCreds } = await useMultiFileAuthState(authFolderPath);
+    // 🟢 CUSBOONAYSIIN: Hadda waxaan isticmaalaynaa MongoDB halkii aan ka isticmaali lahayn faylasha
+    const { state, saveCreds, clearStoreData } = await useMongoDBAuthState(storeId);
 
     // SOO JIID VERSION-KA UGU DAMBEEYAY EE WHATSAPP WEB
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -111,12 +186,8 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                 try { sock.ws.close(); } catch (err) {}
                 sock.ev.removeAllListeners();
                 
-                setTimeout(() => {
-                    if (fs.existsSync(authFolderPath)) {
-                        fs.rmSync(authFolderPath, { recursive: true, force: true });
-                        console.log(`🗑️ Galka WhatsApp (${storeId}) waa la tirtiray maxaa yeelay telefoonka ayaa laga gooyay.`);
-                    }
-                }, 2000);
+                await clearStoreData(); // 🟢 CUSBOONAYSIIN: Ka tirtir xogta MongoDB
+                console.log(`🗑️ Xogtii session-ka ee WhatsApp (${storeId}) waa laga tirtiray MongoDB.`);
             } else if (stoppedBots[storeId]) {
                 console.log(`⏸️ Bot-ka (Store ${storeId}) waa la hakiyay. Galkii (Session) waa la xafiday.`);
                 if (connectionStatus[storeId]) connectionStatus[storeId].status = 'stopped'; // 🟢 WAA LAGU DARAY
@@ -137,9 +208,7 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     });
 
     sock.ev.on('creds.update', () => {
-        if (fs.existsSync(authFolderPath)) {
-            saveCreds();
-        }
+        saveCreds(); // 🟢 CUSBOONAYSIIN: Si toos ah u kaydi xogta MongoDB
     });
 
     // ==========================================

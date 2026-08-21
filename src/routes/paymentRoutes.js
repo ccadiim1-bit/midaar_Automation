@@ -112,7 +112,7 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
         }
 
         // 🟢 Tus qoraalka dhabta ah ee soo dhacay
-        console.log(`[PAYMENT] Received SMS from ${from}: "${text}"`);
+        // (Removed log to hide sensitive SMS content)
 
         // 🟢 Si toos ah u tijaabi dhammaan shirkadaha (Ha ku xirin from===192)
         let paymentInfo = parseEvcPlusSms(text) || parseEDahabSms(text);
@@ -123,7 +123,7 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
         }
 
         const { amount, senderNumber, transactionId, paymentMethod } = paymentInfo;
-        console.log(`[PAYMENT] Parsed successfully: $${amount} from ${senderNumber} via ${paymentMethod}`);
+        // (Removed log to hide sensitive parsed data)
 
         // TASK 3: Check Database
         // 🟢 XALKA UGU DAMBEEYA: Si joogto ah u nadiifi nambarada si is waafaqsan
@@ -136,7 +136,7 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
         };
 
         const cleanSender = robustCleanNumber(senderNumber);
-        console.log(`[PAYMENT DEBUG] Raadinta nambarka la nadiifiyay: ${cleanSender}`);
+        // (Removed log to hide sensitive cleaned number)
 
         // Soo jiid dhammaan dukaamada si aan u hubinno khaanadaha admin_number IYO payment_number
         const { data: allStores, error: storesError } = await supabase
@@ -157,8 +157,8 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
         });
 
         if (!store) {
-            // Haddii la waayo, wuxuu terminal-ka noogu soo daabici doonaa waxa dhabta ah ee DB-ga ku jira
-            console.error(`[PAYMENT] Store not found. Nambarada DB-ga ku jira waa:`, allStores.map(s => ({ id: s.id, admin: s.admin_number, pay: s.payment_number })));
+            // Haddii la waayo, waxaa la qarinayaa xogta si aysan u faafin sirta dadka
+            console.error('[PAYMENT] Store not found for the provided number.');
             return res.status(200).send('Store not found for this number.');
         }
 

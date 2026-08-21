@@ -200,6 +200,37 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
             }
         } else if (connection === 'open') {
             console.log(`✅ WhatsApp (Store ${storeId}) si guul leh ayuu u kacay!`);
+            
+            // 🟢 KUDAR CUSUB: Hubi in nambarkaan lala wadaagay dukaan kale (Ka hortagga abuurista account-yo badan)
+            try {
+                if (sock.user && sock.user.id) {
+                    const userPhone = sock.user.id.split(':')[0]; // Tusaale: 25261xxxxxxx
+                    const db = await connectToMongo();
+                    const collection = db.collection('whatsapp_sessions');
+                    
+                    // Soo hel dhammaan session-yada kale ee leh nambarkaan
+                    const existingDocs = await collection.find({ "session.me.id": { $regex: `^${userPhone}` } }).toArray();
+                    const otherStores = existingDocs.filter(doc => !doc._id.startsWith(storeId));
+
+                    if (otherStores.length > 0) {
+                        console.log(`⚠️ Nambarkaan (${userPhone}) horay ayaa looga diiwaangeliyay dukaan kale! Waa la joojinayaa si looga hortago abuurista account-yo badan.`);
+                        
+                        try { sock.ws.close(); } catch (err) {}
+                        sock.ev.removeAllListeners();
+                        await clearStoreData(); // Tirtir session-ka dukaankan cusub
+                        delete activeSockets[storeId];
+                        
+                        if (connectionStatus[storeId]) {
+                            connectionStatus[storeId].status = 'disconnected';
+                            connectionStatus[storeId].qr = '';
+                        }
+                        return; // Jooji socodsiinta inta dhiman
+                    }
+                }
+            } catch (error) {
+                console.error("[WHATSAPP] Cilad hubinta nambarada horay loo diiwaangeliyay:", error);
+            }
+
             if (connectionStatus[storeId]) { // 🟢 WAA LAGU DARAY
                 connectionStatus[storeId].status = 'connected';
                 connectionStatus[storeId].qr = '';

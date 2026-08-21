@@ -61,7 +61,7 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
   // Kaliya hubi salaanta iyo FAQ haddii aysan fariintu sawir lahayn
   if (!imageData) {
     // --- TIER 1: Greeting Check ---
-    const greetings = ['hi', 'hello', 'salaam', 'slm', 'salam', 'is ka waran', 'iska waran', 'haye'];
+    const greetings = ['hi', 'hello', 'salaam', 'slm', 'salam', 'is ka waran', 'iska waran', 'haye', 'asc', 'waryaa haye', 'saaxiib', '.'];
     if (greetings.some(g => lowerCaseMessage.startsWith(g))) {
       const greetingResponse = store.greeting_message || "Salaam! Sideen kuu caawin karaa maanta?";
       await sendMessageFromHandler(storeId, customerPhone, greetingResponse);

@@ -229,7 +229,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                                     <li>Full AI Capabilities</li>
                                     <li>7 Maalmood oo Adeeg ah</li>
                                 </ul>
-                                <button onclick="selectPlan(this, 4.99)" class="mt-6 bg-purple-600/50 hover:bg-purple-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
+                                <button onclick="selectPlan(this, '4.99')" class="mt-6 bg-purple-600/50 hover:bg-purple-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
                             </div>
 
                             <!-- Monthly Plan (Recommended) -->
@@ -242,7 +242,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                                     <li>Full AI Capabilities</li>
                                     <li>30 Maalmood oo Adeeg ah</li>
                                 </ul>
-                                <button onclick="selectPlan(this, 9.99)" class="mt-6 bg-purple-600 hover:bg-purple-500 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
+                                <button onclick="selectPlan(this, '9.99')" class="mt-6 bg-purple-600 hover:bg-purple-500 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
                             </div>
 
                             <!-- Premium Plan -->
@@ -254,7 +254,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                                     <li>Full AI Capabilities</li>
                                     <li>30 Maalmood oo Adeeg ah</li>
                                 </ul>
-                                <button onclick="selectPlan(this, 99.99)" class="mt-6 bg-purple-600/50 hover:bg-purple-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
+                                <button onclick="selectPlan(this, '99.99')" class="mt-6 bg-purple-600/50 hover:bg-purple-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
                             </div>
                         </div>
 
@@ -348,7 +348,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                 const pricingModal = document.getElementById('pricingModal');
                 const modalContent = document.getElementById('modalContent');
                 // New global state variables
-                let selectedAmountForPayment = 0;
+                let selectedAmountForPayment = ''; // 🟢 WAX KA BEDDEL: Waxaan u beddelnay qoraal (string) si aan uga fogaanno ciladaha nambarada
                 let selectedProvider = '';
 
                 function openPricingModal() {
@@ -384,6 +384,11 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                     
                     // Reset provider selection highlight
                     document.querySelectorAll('.provider-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-offset-2', 'ring-offset-black/50', 'ring-yellow-400'));
+
+                    // Scroll automatically to the payment steps for better mobile experience
+                    setTimeout(() => {
+                        document.getElementById('paymentStepsContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
                 }
 
                 // New function to select a provider
@@ -425,13 +430,17 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                             body: JSON.stringify({ senderNumber })
                         });
 
-                        // Generate USSD code
-                        const ussdCodes = {
-                            'Hormuud': '*712*770822402*' + selectedAmountForPayment + '#',
-                            'Somnet': '*812*770822402*' + selectedAmountForPayment + '#',
-                            'Golis': '*883*0770822402*' + selectedAmountForPayment + '#',
-                            'eDahab': '*712*629633408*' + selectedAmountForPayment + '#'
-                        };
+                       // XALKA DHIBAATADA: Taleefanada qaar ayaa tirtira dhibicda (.) markii tel: la isticmaalayo. 
+// Shirkadaha isgaarsiinta Soomaaliya waxay ogol yihiin in dhibicda lagu beddelo xidigta (*).
+const safeAmountString = selectedAmountForPayment.replace('.', '*'); 
+
+// Generate USSD code
+const ussdCodes = {
+    'Hormuud': '*712*770822402*' + safeAmountString + '#',
+    'Somnet': '*812*770822402*' + safeAmountString + '#',
+    'Golis': '*883*0770822402*' + safeAmountString + '#',
+    'eDahab': '*712*629633408*' + safeAmountString + '#'
+};
                         const ussdCode = ussdCodes[selectedProvider];
 
                         // Trigger dialer

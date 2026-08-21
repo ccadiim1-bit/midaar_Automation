@@ -374,7 +374,7 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
             // Shaqada rasmiga ah ee kutubta 'baileys' u qaabilsan koodhka
             const code = await sock.requestPairingCode(cleanNumber);
             
-            console.log(`🔑 Koodhka uu bixiyay WhatsApp: ${code}`);
+            // Removed log to hide the pairing code from the terminal
             return code;
         } else {
             console.error("Lama kicin karin nidaamka bot-ka.");

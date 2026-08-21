@@ -111,6 +111,9 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                     <a href="/settings" class="block px-4 py-3 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl font-semibold transition">
                         ⚙️ Settings (Dejinta)
                     </a>
+                    <a href="https://wa.me/252684199835" target="_blank" class="block px-4 py-3 text-slate-400 hover:bg-white/5 hover:text-green-400 rounded-xl font-semibold transition">
+                        💬 Support (Taageero)
+                    </a>
                 </nav>
 
                 <div class="absolute bottom-6 left-6">
@@ -201,6 +204,10 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                 <a href="/settings" class="flex flex-col items-center text-slate-400 hover:text-white transition">
                     <span class="text-xl mb-1">⚙️</span>
                     <span class="text-[10px] font-bold">Settings</span>
+                </a>
+                <a href="https://wa.me/252684199835" target="_blank" class="flex flex-col items-center text-slate-400 hover:text-green-400 transition">
+                    <span class="text-xl mb-1">💬</span>
+                    <span class="text-[10px] font-bold">Support</span>
                 </a>
                 <a href="/logout" class="flex flex-col items-center text-red-400/80 hover:text-red-400 transition">
                     <span class="text-xl mb-1">🚪</span>

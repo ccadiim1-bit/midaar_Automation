@@ -6,6 +6,22 @@ const messageHandlerService = require('./messageHandlerService');
 // Configure Redis connection. Ensure REDIS_URL is in your .env file.
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   maxRetriesPerRequest: null, // Important for BullMQ
+  retryStrategy(times) {
+    const delay = Math.min(times * 50, 2000); // Dib u xirida waxay qaadanaysaa ilaa 2 sekan
+    return delay;
+  },
+});
+
+connection.on('error', (error) => {
+  console.error('[REDIS] Khalad xagga xiriirka ah:', error.message);
+});
+
+connection.on('reconnecting', () => {
+  console.log('[REDIS] Dib ayuu isugu xirayaa...');
+});
+
+connection.on('connect', () => {
+  console.log('[REDIS] Si guul leh ayuu isugu xirmay.');
 });
 
 /**

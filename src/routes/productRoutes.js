@@ -20,6 +20,21 @@ router.post('/add', async (req, res) => {
     const storeId = req.session.storeData.id;
 
     try {
+        // --- XADKA ALAABTA (LIMIT CHECK) ---
+        const { data: storeInfo } = await supabase.from('stores').select('is_pro').eq('id', storeId).single();
+        if (!storeInfo?.is_pro) {
+            const { count } = await supabase.from('products').select('*', { count: 'exact', head: true }).eq('store_id', storeId);
+            if (count >= 20) {
+                return res.send(`
+                    <script>
+                        alert('❌ Xadka alaabta (20) waa la gaaray. Fadlan u dalac Pro si aad xad la\'aan ugu darto.');
+                        window.location.href = '/dashboard';
+                    </script>
+                `);
+            }
+        }
+        // -----------------------------------
+
         const { error } = await supabase
             .from('products')
             .insert([
@@ -95,6 +110,24 @@ router.post('/upload', upload.single('excelFile'), async (req, res) => {
         });
 
         if (productsToInsert.length > 0) {
+            // --- XADKA ALAABTA (LIMIT CHECK) ---
+            const { data: storeInfo } = await supabase.from('stores').select('is_pro').eq('id', storeId).single();
+            if (!storeInfo?.is_pro) {
+                const { count } = await supabase.from('products').select('*', { count: 'exact', head: true }).eq('store_id', storeId);
+                if (count + productsToInsert.length > 20) {
+                    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+                    const allowed = 20 - count;
+                    const rem = allowed > 0 ? allowed : 0;
+                    return res.send(`
+                        <script>
+                            alert('❌ Xadka alaabta waa 20. Waxaa kuu harsan oo kaliya ${rem} alaab, adiguna waxaad isku deyaysaa ${productsToInsert.length}. Fadlan yaree excel-ka ama Upgrade garee account-kaaga.');
+                            window.location.href = '/dashboard';
+                        </script>
+                    `);
+                }
+            }
+            // -----------------------------------
+
             const { error } = await supabase.from('products').insert(productsToInsert);
             if (error) {
                 console.error("⚠️ Khalad geynta Excel-ka Supabase:", error.message);

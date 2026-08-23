@@ -141,10 +141,10 @@ function settingsPage(storeData = {}) {
                                 <label class="block text-slate-400 text-sm mb-1">Tilmaamaha Bot-ka (System Prompt)</label>
                                 <textarea id="system_prompt_ta" name="system_prompt" rows="5" oninput="countWords()" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm resize-none transition-colors duration-200">${escapeHTML(storeData.system_prompt)}</textarea>
                                 <div class="flex items-center justify-between mt-1.5">
-                                    <p id="prompt_warning" class="text-xs hidden">⚠️ Xadka 200 erayga ayaad gaadhtay!</p>
+                                    <p id="prompt_warning" class="text-xs hidden">⚠️ Xadka 200 xaraf ayaad gaadhtay!</p>
                                     <p class="text-[11px] text-slate-500 ml-auto">
                                         <span id="word_count" class="font-bold text-purple-400">0</span>
-                                        <span class="text-slate-500"> / 200 eray</span>
+                                        <span class="text-slate-500"> / 200 xaraf</span>
                                     </p>
                                 </div>
                             </div>
@@ -176,32 +176,31 @@ function settingsPage(storeData = {}) {
             </nav>
 
             <script>
-                const MAX_WORDS = 200;
+                const MAX_CHARS = 200;
 
                 function countWords() {
                     const ta = document.getElementById('system_prompt_ta');
                     const countEl = document.getElementById('word_count');
                     const warningEl = document.getElementById('prompt_warning');
-                    const text = ta.value.trim();
-                    const words = text === '' ? 0 : text.split(/\s+/).length;
+                    const chars = ta.value.length;
 
-                    countEl.textContent = words;
+                    countEl.textContent = chars;
 
                     // Color coding
-                    if (words > MAX_WORDS) {
+                    if (chars > MAX_CHARS) {
                         countEl.className = 'font-bold text-red-400';
                         ta.classList.remove('focus:border-purple-500', 'border-purple-900/40', 'border-yellow-500/60');
                         ta.classList.add('border-red-500/70');
                         warningEl.classList.remove('hidden', 'text-yellow-400');
                         warningEl.classList.add('text-red-400');
-                        warningEl.textContent = '⛔ Xadka 200 erayga waa la dhaafay! Fadlan yaree.';
-                    } else if (words >= 180) {
+                        warningEl.textContent = '⛔ Xadka 200 xaraf waa la dhaafay! Fadlan yaree.';
+                    } else if (chars >= 180) {
                         countEl.className = 'font-bold text-yellow-400';
                         ta.classList.remove('border-red-500/70', 'border-purple-900/40');
                         ta.classList.add('border-yellow-500/60');
                         warningEl.classList.remove('hidden', 'text-red-400');
                         warningEl.classList.add('text-yellow-400');
-                        warningEl.textContent = '⚠️ Waad u dhawaatay xadka (200 eray)!';
+                        warningEl.textContent = '⚠️ Waad u dhawaatay xadka (200 xaraf)!';
                     } else {
                         countEl.className = 'font-bold text-purple-400';
                         ta.classList.remove('border-red-500/70', 'border-yellow-500/60');
@@ -212,10 +211,9 @@ function settingsPage(storeData = {}) {
 
                 function checkWordLimit() {
                     const ta = document.getElementById('system_prompt_ta');
-                    const text = ta.value.trim();
-                    const words = text === '' ? 0 : text.split(/\s+/).length;
-                    if (words > MAX_WORDS) {
-                        alert('❌ System Prompt-ku wuxuu leeyahay ' + words + ' eray. Fadlan u yaree 200 eray ama ka hooseeya.');
+                    const chars = ta.value.length;
+                    if (chars > MAX_CHARS) {
+                        alert('❌ System Prompt-ku wuxuu leeyahay ' + chars + ' xaraf. Fadlan u yaree 200 xaraf ama ka hooseeya.');
                         return false;
                     }
                     return true;

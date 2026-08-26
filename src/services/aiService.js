@@ -197,9 +197,15 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
         if (!aiResponseText) {
             const openRouterApiKey = process.env.OPENROUTER_KEY_1;
             if (openRouterApiKey) {
+                // 🖼️ Modelasha vision-ka (sawir-garasho) taageera ee OpenRouter
                 const openRouterModelsToTry = [
-                   'google/gemini-3.7-flash', 
+                   'google/gemini-2.5-flash',        // Gemini 2.5 Flash - Vision taageera ✅
+                   'google/gemini-2.5-flash-lite-preview-06-17', // Fallback
                 ];
+
+                if (imageData) {
+                    console.log(`🖼️ [OpenRouter] Sawir ayaa la soo diray - waxaan isticmaalayaa vision model si loo garto.`);
+                }
 
                 const openRouterClient = new OpenAI({
                     apiKey: openRouterApiKey,

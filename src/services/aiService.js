@@ -199,7 +199,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             if (openRouterApiKey) {
                 // 🖼️ Modelasha vision-ka (sawir-garasho) taageera ee OpenRouter
                 const openRouterModelsToTry = [
-                    'google/gemini-3.7-flah',
+                    'google/gemini-3.7-flsh',
                     'google/gemini-2.5-flash-lite-preview-06-17', // Fallback
                 ];
 

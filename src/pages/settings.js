@@ -75,8 +75,11 @@ function settingsPage(storeData = {}) {
                                 <img id="qr-image" src="" alt="QR Code" class="w-full h-full object-contain hidden">
                             </div>
 
-                            <button type="button" onclick="startQRScan()" id="btn-scan" class="bg-purple-600 hover:bg-purple-500 text-white w-full py-3 rounded-xl font-semibold transition text-sm">
+                            <button type="button" onclick="requestNewQR()" id="btn-scan" class="bg-purple-600 hover:bg-purple-500 text-white w-full py-3 rounded-xl font-semibold transition text-sm">
                                 🔄 Soo saar QR Code
+                            </button>
+                            <button type="button" onclick="disconnectWhatsApp()" id="btn-disconnect" class="hidden mt-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30 w-full py-2.5 rounded-xl font-semibold transition text-sm">
+                                🔌 Ka gooy xiriirka & QR cusub hel
                             </button>
                         </div>
 
@@ -232,15 +235,18 @@ function settingsPage(storeData = {}) {
                 let qrInterval;
 
                 document.addEventListener("DOMContentLoaded", () => {
+                    // Kaliya hubi haddii horay u xiran yahay - ha bilaabinin si automatic ah
                     fetch('/api/whatsapp/qr')
                         .then(res => res.json())
                         .then(data => {
                             if (data.qrImage === 'connected') {
                                 showConnectedState();
                             } else if (data.qrImage) {
+                                // QR ayaa horay u soo baxay, soo bandhig
                                 showQRState(data.qrImage);
                                 qrInterval = setInterval(checkQRStatus, 2000);
                             }
+                            // Haddii disconnected yahay, ha samayn waxba - u sug macaamiilka inuu badhanka taabo
                         })
                         .catch(err => console.log("Lama hubin karin xaaladda QR-ka."));
                 });
@@ -250,6 +256,7 @@ function settingsPage(storeData = {}) {
                     const qrImage = document.getElementById('qr-image');
                     const btn = document.getElementById('btn-scan');
                     const instruction = document.getElementById('qr-instruction');
+                    const btnDisconnect = document.getElementById('btn-disconnect');
 
                     if(instruction) instruction.innerHTML = "Bot-kaagu wuxuu diyaar u yahay inuu u adeego macaamiishaada.";
                     
@@ -267,6 +274,9 @@ function settingsPage(storeData = {}) {
                         btn.classList.replace('hover:bg-purple-500', 'hover:bg-emerald-600');
                         btn.classList.add('cursor-not-allowed', 'opacity-80');
                     }
+
+                    // Muuji badhanka 'Disconnect & QR cusub'
+                    if(btnDisconnect) btnDisconnect.classList.remove('hidden');
 
                     // Sidoo kale bedel badhanka Pairing Code-ka haddii la isku xiray
                     const btnPairing = document.getElementById('btn-pairing');
@@ -293,7 +303,8 @@ function settingsPage(storeData = {}) {
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
                 }
 
-                function startQRScan() {
+                // Marka qofku rabo QR cusub si toos ah
+                function requestNewQR() {
                     const loadingText = document.getElementById('qr-loading');
                     const qrImage = document.getElementById('qr-image');
                     const btn = document.getElementById('btn-scan');
@@ -318,6 +329,58 @@ function settingsPage(storeData = {}) {
                             btn.disabled = false;
                             btn.classList.remove('opacity-50', 'cursor-not-allowed');
                         });
+                }
+
+                // Marka qofku rabo inuu gooyo xiriirka hore oo QR cusub helo
+                function disconnectWhatsApp() {
+                    const loadingText = document.getElementById('qr-loading');
+                    const qrImage = document.getElementById('qr-image');
+                    const btn = document.getElementById('btn-scan');
+                    const btnDisconnect = document.getElementById('btn-disconnect');
+                    const instruction = document.getElementById('qr-instruction');
+
+                    if (!confirm('Ma hubtaa inaad xiriirka goysid oo QR cusub heshid?')) return;
+
+                    btnDisconnect.innerText = 'Wuxuu joojinaayaa... ⏳';
+                    btnDisconnect.disabled = true;
+
+                    fetch('/api/whatsapp/restart', { method: 'POST' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'restarting') {
+                                // Dib u deji UI-ga si loo sugo QR cusub
+                                loadingText.innerHTML = 'Wuxuu dib u bilaabayaa... ⏳';
+                                loadingText.classList.remove('hidden', 'text-emerald-600', 'text-lg', 'font-black');
+                                loadingText.classList.add('text-slate-800', 'text-sm');
+                                qrImage.classList.add('hidden');
+
+                                btn.innerText = 'Fadlan sug QR-ka...';
+                                btn.disabled = true;
+                                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-600');
+                                btn.classList.add('bg-purple-600', 'hover:bg-purple-500', 'opacity-50', 'cursor-not-allowed');
+
+                                btnDisconnect.classList.add('hidden');
+                                btnDisconnect.innerText = '🔌 Ka gooy xiriirka & QR cusub hel';
+                                btnDisconnect.disabled = false;
+
+                                if(instruction) instruction.innerHTML = 'Taabo badhanka hoose si aad u soo saarto QR Code-ka dhabta ah, kadibna iskaan garee.';
+
+                                // Bilow hubinta QR cusub
+                                clearInterval(qrInterval);
+                                setTimeout(() => {
+                                    qrInterval = setInterval(checkQRStatus, 2000);
+                                }, 2000);
+                            }
+                        })
+                        .catch(err => {
+                            btnDisconnect.innerText = '❌ Cilad - Dib u isku day';
+                            btnDisconnect.disabled = false;
+                        });
+                }
+
+                // Shaqadii hore (startQRScan) - la isticmaalay meelo kale
+                function startQRScan() {
+                    requestNewQR();
                 }
 
                 function checkQRStatus() {

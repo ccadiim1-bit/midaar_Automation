@@ -380,6 +380,36 @@ function stopWhatsApp(storeId) {
         console.log(`✅ Shaqadii Bot-ka waa la hakiyay. Galka QR-ka lama tirtirin.`);
     }
 }
+
+/**
+ * Dib u xir WhatsApp socket-ka adiga oo SESSION-KA MONGODB-GA KU HADHSIINAYA.
+ * Waxaa loo isticmaalaa marka qofku rabo inuu dib u xiro ama QR cusub helo
+ * laakiin uusan rabba in session-kiisa la tirtiro.
+ */
+async function softRestartWhatsApp(storeId) {
+    console.log(`🔄 [RESTART] Dib u xirka bot-ka (session la xafiday) - Store: ${storeId}`);
+    
+    // Xir socket-ka hadda socda haddii uu jiro (ha tirtirin session-ka)
+    if (activeSockets[storeId]) {
+        try {
+            activeSockets[storeId].ev.removeAllListeners();
+            activeSockets[storeId].ws.close();
+        } catch (err) {}
+        delete activeSockets[storeId];
+    }
+    
+    // Nadiifi xaaladdii joojinta si dib-u-xirku u shaqeeyo
+    stoppedBots[storeId] = false;
+    
+    // Cusboonaysii xaaladda UI-ga
+    if (connectionStatus[storeId]) {
+        connectionStatus[storeId].status = 'connecting';
+        connectionStatus[storeId].qr = '';
+    }
+    
+    // Bilow xiriir cusub (session-kii MongoDB-ga ayaa wali jira)
+    await startWhatsApp(storeId, globalAddMessageToQueueFn);
+}
 // 🟢 SHAQADA CUSUB: Soo saarista Pairing Code-ka (8 xaraf)
 async function requestWhatsAppPairingCode(storeId, phoneNumber) {
     try {
@@ -416,4 +446,4 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
         return null;
     }
 }
-module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, requestWhatsAppPairingCode, sendMessageFromHandler };
+module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, softRestartWhatsApp, requestWhatsAppPairingCode, sendMessageFromHandler };

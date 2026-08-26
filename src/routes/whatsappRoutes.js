@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { addMessageToQueue } = require('../services/queueService'); // Import addMessageToQueue
 const { isLoggedIn } = require('../middleware/authMiddleware.js'); // 🟢 WAA LAGU DARAY: Middleware la wadaago
-const { startWhatsApp, getStoreConnectionState, requestWhatsAppPairingCode } = require('../services/whatsappService.js');
+const { startWhatsApp, stopWhatsApp, softRestartWhatsApp, getStoreConnectionState, requestWhatsAppPairingCode } = require('../services/whatsappService.js');
 
 router.use(isLoggedIn);
 
@@ -15,6 +15,18 @@ router.post('/start', (req, res) => {
     });
     
     res.send({ status: 'started' });
+});
+
+// Dib u xir bot-ka ADIGA OO SESSION-KA XAFIDAYA (MongoDB data lama tirtiro)
+router.post('/restart', async (req, res) => {
+    const storeId = req.session.storeData.id;
+    
+    res.send({ status: 'restarting' }); // U dir jawaab degdeg ah
+    
+    // Dib u xir - session-ka MongoDB-ga wuu ku hadhayaa
+    softRestartWhatsApp(storeId).catch(err => {
+        console.error(`❌ Cilad dib-u-xirka bot-ka dukaanka ${storeId}:`, err.message || err);
+    });
 });
 
 router.get('/qr', (req, res) => {

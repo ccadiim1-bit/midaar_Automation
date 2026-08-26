@@ -1,5 +1,5 @@
 // src/services/aiService.js
-const supabase = require('../config/supabaseClient'); 
+const supabase = require('../config/supabaseClient');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { OpenAI } = require('openai'); // Import OpenAI for DeepSeek fallback
 require('dotenv').config(); // Ensure dotenv is loaded
@@ -8,7 +8,7 @@ require('dotenv').config(); // Ensure dotenv is loaded
 const preferredGeminiModels = [
     "gemini-flash-latest", // Fast and cheap
     "Gemini 3.7 Flash",   // More powerful, if flash fails
-    "gemini-3.5-pro",  
+    "gemini-3.5-pro",
     "gemini-2.5-flash-lite"        // Older but stable fallback
 ];
 
@@ -35,50 +35,50 @@ async function executeProductSearch(storeId, query) {
 
 // Tool definitions for Gemini
 const geminiTools = [{
-  functionDeclarations: [
-    {
-      name: "search_store_products",
-      description: "Search for a product in the store database by name or keywords to get its price, description, and availability. ALWAYS use this tool whenever the user asks about a product, its price, or if it's in stock. Don't say you don't know without using this tool.",
-      parameters: {
-        type: "OBJECT",
-        properties: {
-          query: {
-            type: "STRING",
-            description: "The name or keywords of the product to search for (e.g., 'kabo nike', 'shaati', 'saacad')",
-          },
+    functionDeclarations: [
+        {
+            name: "search_store_products",
+            description: "Search for a product in the store database by name or keywords to get its price, description, and availability. ALWAYS use this tool whenever the user asks about a product, its price, or if it's in stock. Don't say you don't know without using this tool.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    query: {
+                        type: "STRING",
+                        description: "The name or keywords of the product to search for (e.g., 'kabo nike', 'shaati', 'saacad')",
+                    },
+                },
+                required: ["query"],
+            },
         },
-        required: ["query"],
-      },
-    },
-  ],
+    ],
 }];
 
 // Tool definitions for OpenAI (OpenRouter & DeepSeek)
 const openAiTools = [
-  {
-    type: "function",
-    function: {
-      name: "search_store_products",
-      description: "Search for a product in the store database by name or keywords to get its price, description, and availability. ALWAYS use this tool whenever the user asks about a product, its price, or if it's in stock. Don't say you don't know without using this tool.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The name or keywords of the product to search for (e.g., 'kabo nike', 'shaati', 'saacad')"
-          }
-        },
-        required: ["query"]
-      }
+    {
+        type: "function",
+        function: {
+            name: "search_store_products",
+            description: "Search for a product in the store database by name or keywords to get its price, description, and availability. ALWAYS use this tool whenever the user asks about a product, its price, or if it's in stock. Don't say you don't know without using this tool.",
+            parameters: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "The name or keywords of the product to search for (e.g., 'kabo nike', 'shaati', 'saacad')"
+                    }
+                },
+                required: ["query"]
+            }
+        }
     }
-  }
 ];
 
 async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageData = null) {
     try {
         const { data: storeInfo, error: storeError } = await supabase
-            .from('stores') 
-            .select('system_prompt, location, work_hours, gemini_key') 
+            .from('stores')
+            .select('system_prompt, location, work_hours, gemini_key')
             .eq('id', storeId)
             .single();
 
@@ -128,7 +128,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
         }));
 
         while (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
-            formattedHistory.shift(); 
+            formattedHistory.shift();
         }
 
         // Haddii macmiilku sawir u dirayo laakiin caption (qoraal) uusan lahayn,
@@ -136,18 +136,18 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
         const effectiveUserPrompt = userPrompt || (imageData ? "Fadlan eeg sawirkan oo ii sheeg waxa ku muuqda, ka dib raadi alaabta dukaanka." : "");
 
         let aiResponseText = null;
-        
+
         // --- TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
         if (storeInfo && storeInfo.gemini_key) {
             for (const modelName of preferredGeminiModels) {
                 try {
                     const genAI = new GoogleGenerativeAI(storeInfo.gemini_key);
-                    const model = genAI.getGenerativeModel({ 
+                    const model = genAI.getGenerativeModel({
                         model: modelName,
                         systemInstruction: finalSystemPrompt,
                         tools: geminiTools
                     });
-    
+
                     const promptParts = [];
                     if (imageData) {
                         promptParts.push({
@@ -164,15 +164,15 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
 
                     const chatSession = model.startChat({ history: formattedHistory });
                     let result = await chatSession.sendMessage(promptParts);
-                    
+
                     const functionCalls = result.response.functionCalls();
-                    
+
                     if (functionCalls && functionCalls.length > 0) {
                         const call = functionCalls[0];
                         if (call.name === "search_store_products") {
                             // console.log(`[AI Gemini] Tool Calling triggered for: ${call.args.query}`);
                             const searchResult = await executeProductSearch(storeId, call.args.query);
-                            
+
                             // Send the search result back to Gemini
                             result = await chatSession.sendMessage([{
                                 functionResponse: {
@@ -199,8 +199,8 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             if (openRouterApiKey) {
                 // 🖼️ Modelasha vision-ka (sawir-garasho) taageera ee OpenRouter
                 const openRouterModelsToTry = [
-                   'google/gemini-2.5-flash',        // Gemini 2.5 Flash - Vision taageera ✅
-                   'google/gemini-2.5-flash-lite-preview-06-17', // Fallback
+                    'google/gemini-2.5-flash-lite',        // Gemini 2.5 Flash - Vision taageera ✅
+                    'google/gemini-2.5-flash-lite-preview-06-17', // Fallback
                 ];
 
                 if (imageData) {
@@ -248,13 +248,13 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
 
                         if (responseMessage.tool_calls) {
                             openRouterMessages.push(responseMessage); // Add assistant tool_call message
-                            
+
                             for (const toolCall of responseMessage.tool_calls) {
                                 if (toolCall.function.name === 'search_store_products') {
                                     const args = JSON.parse(toolCall.function.arguments);
                                     // console.log(`[AI OpenRouter] Tool Calling triggered for: ${args.query}`);
                                     const searchResult = await executeProductSearch(storeId, args.query);
-                                    
+
                                     openRouterMessages.push({
                                         role: "tool",
                                         tool_call_id: toolCall.id,
@@ -263,19 +263,19 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                                     });
                                 }
                             }
-                            
+
                             const secondCompletion = await openRouterClient.chat.completions.create({
                                 model: model,
                                 messages: openRouterMessages
                             });
-                            
+
                             aiResponseText = secondCompletion.choices[0].message.content;
                         } else {
                             aiResponseText = responseMessage.content;
                         }
 
                         if (aiResponseText) {
-                            return aiResponseText; 
+                            return aiResponseText;
                         }
                     } catch (openRouterError) {
                         const errorMessage = openRouterError.message || 'Cilad aan la aqoon';
@@ -299,7 +299,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                     apiKey: deepseekApiKey,
                     baseURL: 'https://api.deepseek.com'
                 });
-                
+
                 const deepseekMessages = [{ role: "system", content: finalSystemPrompt }];
 
                 chatHistory.forEach(msg => {
@@ -334,13 +334,13 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
 
                 if (responseMessage.tool_calls) {
                     deepseekMessages.push(responseMessage);
-                    
+
                     for (const toolCall of responseMessage.tool_calls) {
                         if (toolCall.function.name === 'search_store_products') {
                             const args = JSON.parse(toolCall.function.arguments);
                             // console.log(`[AI DeepSeek] Tool Calling triggered for: ${args.query}`);
                             const searchResult = await executeProductSearch(storeId, args.query);
-                            
+
                             deepseekMessages.push({
                                 role: "tool",
                                 tool_call_id: toolCall.id,
@@ -349,17 +349,17 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                             });
                         }
                     }
-                    
+
                     const secondCompletion = await deepseekClient.chat.completions.create({
                         model: "deepseek-chat",
                         messages: deepseekMessages
                     });
-                    
+
                     aiResponseText = secondCompletion.choices[0].message.content;
                 } else {
                     aiResponseText = responseMessage.content;
                 }
-                
+
                 return aiResponseText;
 
             } catch (deepseekError) {

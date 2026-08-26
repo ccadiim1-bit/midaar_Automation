@@ -35,7 +35,8 @@ async function sendMessageFromHandler(storeId, recipient, text) {
   const sock = activeSockets[storeId];
   if (!sock) {
     console.error(`[WHATSAPP] No active socket for store ${storeId} to send reply.`);
-    return;
+    // 🟢 WAA LAGU DARAY: Tuur cilad (throw error) si BullMQ uusan u lumin fariinta ee uu dib ugu tijaabiyo (retry)
+    throw new Error(`No active socket for store ${storeId}`);
   }
   await sock.sendMessage(recipient, { text });
 }

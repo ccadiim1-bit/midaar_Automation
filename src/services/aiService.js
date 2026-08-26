@@ -6,7 +6,8 @@ require('dotenv').config(); // Ensure dotenv is loaded
 
 // Preferred Gemini models to try in order of preference/cost
 const preferredGeminiModels = [
-    "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash-latest"
 ];
 
 // Helper to execute product search

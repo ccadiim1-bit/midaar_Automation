@@ -1,15 +1,12 @@
 // src/services/aiService.js
 const supabase = require('../config/supabaseClient');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { OpenAI } = require('openai'); // Import OpenAI for DeepSeek fallback
+const { OpenAI } = require('openai'); // Import OpenAI for DeepSeek & OpenRouter
 require('dotenv').config(); // Ensure dotenv is loaded
 
 // Preferred Gemini models to try in order of preference/cost
 const preferredGeminiModels = [
-    "gemini-flash-latest", // Fast and cheap
-    "Gemini 3.7 Flash",   // More powerful, if flash fails
-    "gemini-3.5-pro",
-    "gemini-2.5-flash-lite"        // Older but stable fallback
+    "gemini-flash-latest",
 ];
 
 // Helper to execute product search
@@ -131,11 +128,17 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             formattedHistory.shift();
         }
 
-        // Haddii macmiilku sawir u dirayo laakiin caption (qoraal) uusan lahayn,
-        // u sii prompt gaar ah si AI-gu u garto oo u raadsto DB-ga
         const effectiveUserPrompt = userPrompt || (imageData ? "Fadlan eeg sawirkan oo ii sheeg waxa ku muuqda, ka dib raadi alaabta dukaanka." : "");
 
         let aiResponseText = null;
+
+        // XALLINTA SAWIRKA: Diyaarinta format-ka saxda ah ee base64 (ka jarida prefix haduu leeyahay)
+        let cleanBase64 = null;
+        let imageUrlForOpenAi = null;
+        if (imageData) {
+            cleanBase64 = imageData.replace(/^data:image\/\w+;base64,/, ""); // Wuxuu ka saarayaa horgalaha
+            imageUrlForOpenAi = `data:image/jpeg;base64,${cleanBase64}`; // Wuxuu u samaynayaa horgale nadiif ah OpenRouter-ka
+        }
 
         // --- TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
         if (storeInfo && storeInfo.gemini_key) {
@@ -149,17 +152,18 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                     });
 
                     const promptParts = [];
-                    if (imageData) {
+                    // Kudar qoraalka
+                    if (effectiveUserPrompt) {
+                        promptParts.push({ text: effectiveUserPrompt });
+                    }
+                    // Kudar sawirka (Iyadoo la isticmaalayo base64 nadiif ah)
+                    if (cleanBase64) {
                         promptParts.push({
                             inlineData: {
                                 mimeType: 'image/jpeg',
-                                data: imageData,
+                                data: cleanBase64,
                             },
                         });
-                    }
-                    // Isticmaal effectiveUserPrompt (oo ka mid ah sawir-gaar prompt haddii caption lahayn)
-                    if (effectiveUserPrompt) {
-                        promptParts.push({ text: effectiveUserPrompt });
                     }
 
                     const chatSession = model.startChat({ history: formattedHistory });
@@ -170,10 +174,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                     if (functionCalls && functionCalls.length > 0) {
                         const call = functionCalls[0];
                         if (call.name === "search_store_products") {
-                            // console.log(`[AI Gemini] Tool Calling triggered for: ${call.args.query}`);
                             const searchResult = await executeProductSearch(storeId, call.args.query);
-
-                            // Send the search result back to Gemini
                             result = await chatSession.sendMessage([{
                                 functionResponse: {
                                     name: "search_store_products",
@@ -193,14 +194,14 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             }
         }
 
-        // --- TALLAABADA 2-AAD: U gudub OpenRouter haddii kii dukaanku fashilmo ama uusan jirin ---
+        // --- TALLAABADA 2-AAD: U gudub OpenRouter haddii kii dukaanku fashilmo ---
         if (!aiResponseText) {
             const openRouterApiKey = process.env.OPENROUTER_KEY_1;
             if (openRouterApiKey) {
-                // 🖼️ Modelasha vision-ka (sawir-garasho) taageera ee OpenRouter
+                // 🖼️ Modelasha vision-ka (saxan) ee OpenRouter
                 const openRouterModelsToTry = [
-                    'google/gemini-3.7-flsh',
-                    'google/gemini-2.5-flash-lite-preview-06-17', // Fallback
+                    "google/gemini-3.7-flash",
+                    'anthropic/claude-3-haiku' // Back up vision model
                 ];
 
                 if (imageData) {
@@ -225,12 +226,14 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                 if (effectiveUserPrompt) {
                     userMessageContent.push({ type: "text", text: effectiveUserPrompt });
                 }
-                if (imageData) {
+                // Ku darida sawirka qaabka OpenAI u baahan yahay
+                if (imageUrlForOpenAi) {
                     userMessageContent.push({
                         type: "image_url",
-                        image_url: { url: `data:image/jpeg;base64,${imageData}` }
+                        image_url: { url: imageUrlForOpenAi }
                     });
                 }
+
                 if (userMessageContent.length > 0) {
                     openRouterMessages.push({ role: "user", content: userMessageContent });
                 }
@@ -247,12 +250,11 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                         let responseMessage = completion.choices[0].message;
 
                         if (responseMessage.tool_calls) {
-                            openRouterMessages.push(responseMessage); // Add assistant tool_call message
+                            openRouterMessages.push(responseMessage);
 
                             for (const toolCall of responseMessage.tool_calls) {
                                 if (toolCall.function.name === 'search_store_products') {
                                     const args = JSON.parse(toolCall.function.arguments);
-                                    // console.log(`[AI OpenRouter] Tool Calling triggered for: ${args.query}`);
                                     const searchResult = await executeProductSearch(storeId, args.query);
 
                                     openRouterMessages.push({
@@ -285,7 +287,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             }
         }
 
-        // --- TALLAABADA 3-AAD: Fallback to DeepSeek if all Gemini attempts fail ---
+        // --- TALLAABADA 3-AAD: Fallback to DeepSeek if all Gemini & OpenRouter attempts fail ---
         if (!aiResponseText) {
             const deepseekApiKey = process.env.MASTER_DEEPSEEK_API_KEY;
             if (!deepseekApiKey) {
@@ -309,16 +311,16 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                     });
                 });
 
+                // XUSUSO: DeepSeek MA taageero sawiro (Vision). Qoraalka kaliya u dir!
                 const userMessageContent = [];
                 if (effectiveUserPrompt) {
                     userMessageContent.push({ type: "text", text: effectiveUserPrompt });
                 }
+                // Halkan SAWIRO kuma dareyno si uusan u jabin DeepSeek
                 if (imageData) {
-                    userMessageContent.push({
-                        type: "image_url",
-                        image_url: { url: `data:image/jpeg;base64,${imageData}` }
-                    });
+                    userMessageContent.push({ type: "text", text: "[Sawir ayaa la soo diray balse nidaamkan ma akhriyi karo sawirada, ka raali ahow.]" });
                 }
+
                 if (userMessageContent.length > 0) {
                     deepseekMessages.push({ role: "user", content: userMessageContent });
                 }
@@ -338,7 +340,6 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                     for (const toolCall of responseMessage.tool_calls) {
                         if (toolCall.function.name === 'search_store_products') {
                             const args = JSON.parse(toolCall.function.arguments);
-                            // console.log(`[AI DeepSeek] Tool Calling triggered for: ${args.query}`);
                             const searchResult = await executeProductSearch(storeId, args.query);
 
                             deepseekMessages.push({

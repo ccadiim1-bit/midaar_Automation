@@ -96,6 +96,13 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
 
         MUHIIM: Haddii qofka macmiilka ahi uu wax ka weydiiyo alaab, Khasab Waa Inaad isticmaashid tool-ka 'search_store_products' si aad uga soo raadiso database-ka. Ha dhihin 'ma hayno' ama 'ma garanayo' ilaa aad tool-ka isticmaashid!
 
+        🖼️ FAHAMIDA SAWIRADA (IMAGE UNDERSTANDING) - MUHIIM AADKA:
+        - Haddii macmiilku soo diro SAWIR, waa inaad si toos ah u gartaa sawirka oo aad u sheegto waxa ku muuqda.
+        - Ka dib markii aad gartid alaabta ku jirta sawirka, KU DARSII HALKAN HORE tool-ka 'search_store_products' si aad uga raadiso dukaanka.
+        - Tusaale: Haddii sawirka uu muujinayo kabo Nike, raadi 'kabo nike' database-ka. Haddii uu muujinayo shaati cas, raadi 'shaati' database-ka.
+        - Haddii alaabta sawirka ku jirta aanay database-ka ku jirin, u sheeg macmiilka si xushmad leh inaan la hayn alaabtan.
+        - MARNABA ha iska indho tirin sawirka. Waxaad KHASAB tahay inaad ka jawaabto.
+
         SHURUUDAHA JAWABTA:
         1. Ula hadl sidii qof iibiye ah oo xushmad leh.
         2. Af-Soomaali gaaban oo cad isticmaal.
@@ -124,6 +131,10 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             formattedHistory.shift(); 
         }
 
+        // Haddii macmiilku sawir u dirayo laakiin caption (qoraal) uusan lahayn,
+        // u sii prompt gaar ah si AI-gu u garto oo u raadsto DB-ga
+        const effectiveUserPrompt = userPrompt || (imageData ? "Fadlan eeg sawirkan oo ii sheeg waxa ku muuqda, ka dib raadi alaabta dukaanka." : "");
+
         let aiResponseText = null;
         
         // --- TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
@@ -146,8 +157,9 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                             },
                         });
                     }
-                    if (userPrompt) {
-                        promptParts.push({ text: userPrompt });
+                    // Isticmaal effectiveUserPrompt (oo ka mid ah sawir-gaar prompt haddii caption lahayn)
+                    if (effectiveUserPrompt) {
+                        promptParts.push({ text: effectiveUserPrompt });
                     }
 
                     const chatSession = model.startChat({ history: formattedHistory });
@@ -204,8 +216,8 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                 });
 
                 const userMessageContent = [];
-                if (userPrompt) {
-                    userMessageContent.push({ type: "text", text: userPrompt });
+                if (effectiveUserPrompt) {
+                    userMessageContent.push({ type: "text", text: effectiveUserPrompt });
                 }
                 if (imageData) {
                     userMessageContent.push({
@@ -292,8 +304,8 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
                 });
 
                 const userMessageContent = [];
-                if (userPrompt) {
-                    userMessageContent.push({ type: "text", text: userPrompt });
+                if (effectiveUserPrompt) {
+                    userMessageContent.push({ type: "text", text: effectiveUserPrompt });
                 }
                 if (imageData) {
                     userMessageContent.push({

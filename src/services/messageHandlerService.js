@@ -84,7 +84,7 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
         if (foundKeyword) {
           await sendMessageFromHandler(storeId, customerPhone, faq.answer);
           await logAndIncrement(storeId, customerPhone, messageBody, faq.answer, 'faq');
-        // console.log(`[HANDLER] Responded with a cached FAQ to ${customerPhone} for store ${storeId}.`);
+          // console.log(`[HANDLER] Responded with a cached FAQ to ${customerPhone} for store ${storeId}.`);
           return;
         }
       }
@@ -98,34 +98,23 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
   // Ku dar fariinta isticmaalaha taariikhda. Haddii ay sawir tahay, ku dar qoraal ku meel gaar ah.
   const historyText = messageBody || "[Sawir la soo diray]";
   userChatHistory[storeId][customerPhone].push({ role: 'user', text: historyText });
-  // Keep only the last 10 messages to prevent history from growing too large
-  if (userChatHistory[storeId][customerPhone].length > 10) {
+  // Keep only the last 6 messages to prevent history from growing too large
+  if (userChatHistory[storeId][customerPhone].length > 6) {
     userChatHistory[storeId][customerPhone].shift();
   }
 
   // --- TIER 3: AI Fallback ---
   // console.log(`[HANDLER] No greeting or FAQ match. Falling back to AI for store ${storeId}.`);
-  const { data: products, error: productError } = await supabase
-    .from('products')
-    .select('product_name, product_price, product_desc')
-    .eq('store_id', storeId);
-
+  
   // Fetch chat history for the current user
   const chatHistoryForAI = userChatHistory[storeId][customerPhone];
 
-  if (productError) console.error(`[HANDLER] Error fetching products for AI context:`, productError);
-
-  let productsContext = "\n\n📦 ALAABTA AANU HAYNO:\n";
-  productsContext += (products && products.length > 0)
-    ? products.map(p => `- ${p.product_name}: ${p.product_price}. (${p.product_desc || ''})`).join('\n')
-    : "Waqtigan xaadirka ah wax alaab ah oo firfircoon lama hayo.\n";
-  
-  const aiResponse = await generateAIResponse(storeId, messageBody, productsContext, chatHistoryForAI, imageData);
+  const aiResponse = await generateAIResponse(storeId, messageBody, chatHistoryForAI, imageData);
 
   // Add AI's response to history
   userChatHistory[storeId][customerPhone].push({ role: 'ai', text: aiResponse });
-  // Keep only the last 10 messages
-  if (userChatHistory[storeId][customerPhone].length > 10) {
+  // Keep only the last 6 messages
+  if (userChatHistory[storeId][customerPhone].length > 6) {
     userChatHistory[storeId][customerPhone].shift();
   }
 

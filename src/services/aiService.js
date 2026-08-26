@@ -12,11 +12,73 @@ const preferredGeminiModels = [
     "gemini-2.5-flash-lite"        // Older but stable fallback
 ];
 
-async function generateAIResponse(storeId, userPrompt, productsContext, chatHistory = [], imageData = null) {
+// Helper to execute product search
+async function executeProductSearch(storeId, query) {
+    const { data: products, error } = await supabase
+        .from('products')
+        .select('product_name, product_price, product_desc')
+        .eq('store_id', storeId)
+        .ilike('product_name', `%${query}%`)
+        .limit(5); // limit to save tokens
+
+    if (error) {
+        console.error('❌ Cilad raadinta alaabta (DB):', error);
+        return { message: 'Cilad ayaa dhacday markii la raadinayay alaabta.' };
+    }
+
+    if (!products || products.length === 0) {
+        return { message: `Alaabta '${query}' lagama helin dukaanka.` };
+    }
+
+    return { products };
+}
+
+// Tool definitions for Gemini
+const geminiTools = [{
+  functionDeclarations: [
+    {
+      name: "search_store_products",
+      description: "Search for a product in the store database by name or keywords to get its price, description, and availability. ALWAYS use this tool whenever the user asks about a product, its price, or if it's in stock. Don't say you don't know without using this tool.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          query: {
+            type: "STRING",
+            description: "The name or keywords of the product to search for (e.g., 'kabo nike', 'shaati', 'saacad')",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  ],
+}];
+
+// Tool definitions for OpenAI (OpenRouter & DeepSeek)
+const openAiTools = [
+  {
+    type: "function",
+    function: {
+      name: "search_store_products",
+      description: "Search for a product in the store database by name or keywords to get its price, description, and availability. ALWAYS use this tool whenever the user asks about a product, its price, or if it's in stock. Don't say you don't know without using this tool.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The name or keywords of the product to search for (e.g., 'kabo nike', 'shaati', 'saacad')"
+          }
+        },
+        required: ["query"]
+      }
+    }
+  }
+];
+
+async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageData = null) {
     try {
         const { data: storeInfo, error: storeError } = await supabase
             .from('stores') 
-            .select('system_prompt, location, work_hours, gemini_key') // 🟢 WAA LAGU DARAY: gemini_key
+            .select('system_prompt, location, work_hours, gemini_key') 
             .eq('id', storeId)
             .single();
 
@@ -31,12 +93,13 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
         XOGTA DUKAANKA:
         📍 Goobta: ${storeInfo?.location || 'Lama garanayo'}
         ⏰ Saacadaha: ${storeInfo?.work_hours || 'Lama garanayo'}
-        ${productsContext}
+
+        MUHIIM: Haddii qofka macmiilka ahi uu wax ka weydiiyo alaab, Khasab Waa Inaad isticmaashid tool-ka 'search_store_products' si aad uga soo raadiso database-ka. Ha dhihin 'ma hayno' ama 'ma garanayo' ilaa aad tool-ka isticmaashid!
 
         SHURUUDAHA JAWABTA:
         1. Ula hadl sidii qof iibiye ah oo xushmad leh.
         2. Af-Soomaali gaaban oo cad isticmaal.
-        3. Haddii wax aan jirin lagu weydiiyo, dheh hadda ma hayno.
+        3. Haddii wax aan jirin lagu weydiiyo oo aad ka weydo tool-ka, dheh hadda ma hayno.
         4. KALA SAAR WEYDIINTA IYO DALABKA RASMIGA AH:
            - WEYDIIN (Inquiry): Haddii qofku weydiinayo qiimaha, midabka, ama "ma haysaa?", u sharax alaabta hana soo saarin ORDER_TRIGGERED.
            - DALAB DHAB AH (Order): MARNABA ha soo saarin ORDER_TRIGGERED haddii uusan macmiilku si cad u soo qorin 3-daan qodob: 1. Magaciisa 2. Nambarkiisa Telefoonka 3. Goobtiisa/Magaalada.
@@ -57,50 +120,63 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
             parts: [{ text: msg.text }]
         }));
 
-        // Gemini requires history to start with a user message
-        // Ensure the history starts with a 'user' role, if not, remove leading 'model' messages
         while (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
             formattedHistory.shift(); 
         }
 
         let aiResponseText = null;
         
-        // --- 🟢 TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
+        // --- TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
         if (storeInfo && storeInfo.gemini_key) {
-            // console.log(`[AI] Waxaa la isku dayayaa furaha gaarka ah ee dukaanka...`);
             for (const modelName of preferredGeminiModels) {
                 try {
-                    // console.log(`🔄 [AI] Iskudayga Model-ka: ${modelName} (Furaha Dukaanka)`);
                     const genAI = new GoogleGenerativeAI(storeInfo.gemini_key);
                     const model = genAI.getGenerativeModel({ 
                         model: modelName,
-                        systemInstruction: finalSystemPrompt
+                        systemInstruction: finalSystemPrompt,
+                        tools: geminiTools
                     });
     
-                    // 🟢 CUSBOONAYSIIN: Ku dar sawirka haddii uu jiro
                     const promptParts = [];
                     if (imageData) {
                         promptParts.push({
                             inlineData: {
-                                mimeType: 'image/jpeg', // Waxaan u qaadanaynaa inuu yahay JPEG
+                                mimeType: 'image/jpeg',
                                 data: imageData,
                             },
                         });
                     }
-                    // Ku dar qoraalka weydiinta
-                    promptParts.push({ text: userPrompt });
+                    if (userPrompt) {
+                        promptParts.push({ text: userPrompt });
+                    }
 
                     const chatSession = model.startChat({ history: formattedHistory });
-                    const result = await chatSession.sendMessage(promptParts);
-                    aiResponseText = result.response.text();
+                    let result = await chatSession.sendMessage(promptParts);
                     
-                    // console.log(`✅ [AI] Guul! Furaha gaarka ah ee dukaanka ayaa shaqeeyay model-ka ${modelName}.`);
-                    return aiResponseText; // Return immediately on success with store key
+                    const functionCalls = result.response.functionCalls();
+                    
+                    if (functionCalls && functionCalls.length > 0) {
+                        const call = functionCalls[0];
+                        if (call.name === "search_store_products") {
+                            // console.log(`[AI Gemini] Tool Calling triggered for: ${call.args.query}`);
+                            const searchResult = await executeProductSearch(storeId, call.args.query);
+                            
+                            // Send the search result back to Gemini
+                            result = await chatSession.sendMessage([{
+                                functionResponse: {
+                                    name: "search_store_products",
+                                    response: searchResult
+                                }
+                            }]);
+                        }
+                    }
+
+                    aiResponseText = result.response.text();
+                    return aiResponseText;
 
                 } catch (storeKeyError) {
                     const errorMessage = storeKeyError.message || 'Cilad aan la aqoon';
                     console.warn(`⚠️ [AI] Furaha gaarka ah ee dukaanka wuu fashilmay (${modelName}):`, errorMessage);
-                    // Do not return, let it fall through to master keys
                 }
             }
         }
@@ -108,11 +184,9 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
         // --- TALLAABADA 2-AAD: U gudub OpenRouter haddii kii dukaanku fashilmo ama uusan jirin ---
         if (!aiResponseText) {
             const openRouterApiKey = process.env.OPENROUTER_KEY_1;
-            if (!openRouterApiKey) {
-                console.warn('⚠️ [AI] OPENROUTER_KEY_1 not found in .env. Skipping OpenRouter fallback.');
-            } else {
+            if (openRouterApiKey) {
                 const openRouterModelsToTry = [
-                   'google/gemini-3.7-flash', // Corrected model name
+                   'google/gemini-3.7-flash', 
                 ];
 
                 const openRouterClient = new OpenAI({
@@ -122,7 +196,6 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
 
                 const openRouterMessages = [{ role: "system", content: finalSystemPrompt }];
 
-                // Prepare chat history
                 chatHistory.forEach(msg => {
                     openRouterMessages.push({
                         role: msg.role === 'ai' ? 'assistant' : 'user',
@@ -130,7 +203,6 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                     });
                 });
 
-                // Prepare user message with image
                 const userMessageContent = [];
                 if (userPrompt) {
                     userMessageContent.push({ type: "text", text: userPrompt });
@@ -147,20 +219,49 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
 
                 for (const model of openRouterModelsToTry) {
                     try {
-                        console.log(`[AI] Waxaan isku dayeynaa OpenRouter (${model})...`);
                         const completion = await openRouterClient.chat.completions.create({
                             model: model,
                             messages: openRouterMessages,
+                            tools: openAiTools,
+                            tool_choice: "auto"
                         });
 
-                        aiResponseText = completion.choices[0].message.content;
+                        let responseMessage = completion.choices[0].message;
+
+                        if (responseMessage.tool_calls) {
+                            openRouterMessages.push(responseMessage); // Add assistant tool_call message
+                            
+                            for (const toolCall of responseMessage.tool_calls) {
+                                if (toolCall.function.name === 'search_store_products') {
+                                    const args = JSON.parse(toolCall.function.arguments);
+                                    // console.log(`[AI OpenRouter] Tool Calling triggered for: ${args.query}`);
+                                    const searchResult = await executeProductSearch(storeId, args.query);
+                                    
+                                    openRouterMessages.push({
+                                        role: "tool",
+                                        tool_call_id: toolCall.id,
+                                        name: toolCall.function.name,
+                                        content: JSON.stringify(searchResult),
+                                    });
+                                }
+                            }
+                            
+                            const secondCompletion = await openRouterClient.chat.completions.create({
+                                model: model,
+                                messages: openRouterMessages
+                            });
+                            
+                            aiResponseText = secondCompletion.choices[0].message.content;
+                        } else {
+                            aiResponseText = responseMessage.content;
+                        }
+
                         if (aiResponseText) {
-                            return aiResponseText; // Guul!
+                            return aiResponseText; 
                         }
                     } catch (openRouterError) {
                         const errorMessage = openRouterError.message || 'Cilad aan la aqoon';
                         console.error(`❌ [AI] OpenRouter (${model}) wuu fashilmay:`, errorMessage);
-                        // U gudub model-ka xiga
                     }
                 }
             }
@@ -170,12 +271,12 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
         if (!aiResponseText) {
             const deepseekApiKey = process.env.MASTER_DEEPSEEK_API_KEY;
             if (!deepseekApiKey) {
-                console.error('❌ CRITICAL: MASTER_DEEPSEEK_API_KEY not found in .env file. DeepSeek fallback not possible. Please add it to your .env file.');
+                console.error('❌ CRITICAL: MASTER_DEEPSEEK_API_KEY not found in .env file. DeepSeek fallback not possible.');
                 throw new Error("No DeepSeek API key available for fallback.");
             }
 
             try {
-                console.log('⚠️ [AI] Dhammaan noocyadii Gemini way fashilmeen. Waxaan u gudbaynaa DeepSeek...');
+                console.log('⚠️ [AI] Dhammaan noocyadii hore way fashilmeen. Waxaan u gudbaynaa DeepSeek...');
                 const deepseekClient = new OpenAI({
                     apiKey: deepseekApiKey,
                     baseURL: 'https://api.deepseek.com'
@@ -183,7 +284,6 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                 
                 const deepseekMessages = [{ role: "system", content: finalSystemPrompt }];
 
-                // Prepare chat history for DeepSeek
                 chatHistory.forEach(msg => {
                     deepseekMessages.push({
                         role: msg.role === 'ai' ? 'assistant' : 'user',
@@ -191,7 +291,6 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                     });
                 });
 
-                // 🟢 CUSBOONAYSIIN: Ku dar sawirka iyo qoraalka DeepSeek
                 const userMessageContent = [];
                 if (userPrompt) {
                     userMessageContent.push({ type: "text", text: userPrompt });
@@ -199,24 +298,50 @@ async function generateAIResponse(storeId, userPrompt, productsContext, chatHist
                 if (imageData) {
                     userMessageContent.push({
                         type: "image_url",
-                        image_url: {
-                            url: `data:image/jpeg;base64,${imageData}`
-                        }
+                        image_url: { url: `data:image/jpeg;base64,${imageData}` }
                     });
                 }
                 if (userMessageContent.length > 0) {
                     deepseekMessages.push({ role: "user", content: userMessageContent });
                 }
 
-                // console.log(`🔄 [AI] Iskudayga DeepSeek...`);
-
                 const completion = await deepseekClient.chat.completions.create({
-                    model: "deepseek-chat", // Or "deepseek-coder" if preferred
+                    model: "deepseek-chat",
                     messages: deepseekMessages,
+                    tools: openAiTools,
+                    tool_choice: "auto"
                 });
 
-                aiResponseText = completion.choices[0].message.content;
-                // console.log(`✅ [AI] Guul! DeepSeek ayaa shaqeeyay.`);
+                let responseMessage = completion.choices[0].message;
+
+                if (responseMessage.tool_calls) {
+                    deepseekMessages.push(responseMessage);
+                    
+                    for (const toolCall of responseMessage.tool_calls) {
+                        if (toolCall.function.name === 'search_store_products') {
+                            const args = JSON.parse(toolCall.function.arguments);
+                            // console.log(`[AI DeepSeek] Tool Calling triggered for: ${args.query}`);
+                            const searchResult = await executeProductSearch(storeId, args.query);
+                            
+                            deepseekMessages.push({
+                                role: "tool",
+                                tool_call_id: toolCall.id,
+                                name: toolCall.function.name,
+                                content: JSON.stringify(searchResult),
+                            });
+                        }
+                    }
+                    
+                    const secondCompletion = await deepseekClient.chat.completions.create({
+                        model: "deepseek-chat",
+                        messages: deepseekMessages
+                    });
+                    
+                    aiResponseText = secondCompletion.choices[0].message.content;
+                } else {
+                    aiResponseText = responseMessage.content;
+                }
+                
                 return aiResponseText;
 
             } catch (deepseekError) {

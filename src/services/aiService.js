@@ -199,8 +199,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             if (openRouterApiKey) {
                 // 🖼️ Modelasha vision-ka (sawir-garasho) taageera ee OpenRouter
                 const openRouterModelsToTry = [
-                    'google/gemini-2.5-flash-lite',        // Gemini 2.5 Flash - Vision taageera ✅
-                    'google/gemini-2.5-flash-lite-preview-06-17', // Fallback
+                    'google/gemini-3.7-flash',
                 ];
 
                 if (imageData) {

@@ -18,7 +18,9 @@ const supabase = require('../config/supabaseClient'); // 🟢 KUDARISTA CUSUB: S
 const { connectToMongo } = require('../config/mongoClient'); // 🟢 KUDARISTA CUSUB: Isku xirka MongoDB
 
 // Kaydka Bot-yada shaqaynaya si aysan isku dul kicin
-const activeSockets = {}; 
+const activeSockets = {};
+// 🔒 MUTEX GUARD: Ka hortagga in hal store uu laba jeer bilowdo isku mar (Double-Initialization)
+const startingBots = new Set();
 // 🟢 KUDAR CUSUB: Ka hortagga fariimaha la soo celceliyo (Deduplication)
 // Waxaan ku kaydinaynaa aqoonsiga fariimaha la farsameeyay si aan laba jeer loo dirin
 const processedMessages = new Set();
@@ -124,13 +126,20 @@ const useMongoDBAuthState = async (storeId) => {
 };
 
 async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessageToQueueFn
-    stoppedBots[storeId] = false; 
+    stoppedBots[storeId] = false;
 
-    // HUBI IN BOT-KU HORAY U KACSAN YAHAY
+    // 🔒 MUTEX CHECK 1: Hubi in socket-ku horay u kacsan yahay
     if (activeSockets[storeId]) {
-        console.log(`⚠️ Bot-ka dukaanka (ID: ${storeId}) horay ayuu u shaqeynayay!`);
+        console.log(`⚠️ Bot-ka dukaanka (ID: ${storeId}) horay ayuu u shaqeynayay. Skip.`);
         return;
     }
+
+    // 🔒 MUTEX CHECK 2: Hubi in bilowga (initialization) uusan socon (Ka hortagga Double-Start)
+    if (startingBots.has(storeId)) {
+        console.log(`⚠️ Bot-ka dukaanka (ID: ${storeId}) hadda ayaa la bilaabayaa (in progress). Skip.`);
+        return;
+    }
+    startingBots.add(storeId); // Xidh albaabka
     globalAddMessageToQueueFn = addMessageToQueueFn; // Store the function for recursive calls
 
     console.log(`⏳ Waxaan isku xirayaa WhatsApp (Kaydka: MongoDB) - Store ID: ${storeId}...`);
@@ -138,7 +147,12 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     connectionStatus[storeId] = { qr: '', status: 'connecting' }; // 🟢 WAA LAGU DARAY
 
     // 🟢 CUSBOONAYSIIN: Hadda waxaan isticmaalaynaa MongoDB halkii aan ka isticmaali lahayn faylasha
-    const { state, saveCreds, clearStoreData } = await useMongoDBAuthState(storeId);
+    let state, saveCreds, clearStoreData;
+    try {
+        ({ state, saveCreds, clearStoreData } = await useMongoDBAuthState(storeId));
+    } finally {
+        startingBots.delete(storeId); // Xidh albaabka had iyo jeer (success ama failure)
+    }
 
     // SOO JIID VERSION-KA UGU DAMBEEYAY EE WHATSAPP WEB
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -226,24 +240,33 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
             }
             
             const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-            
-            if (statusCode === DisconnectReason.loggedOut) {
+            const errorMessage = lastDisconnect?.error?.message || '';
+
+            // 🔒 CONFLICT GUARD: Ka hortag Infinite Loop-ka 'stream errored: conflict/replaced'
+            const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+            const isReplaced = statusCode === 440 || errorMessage.toLowerCase().includes('replaced') || errorMessage.toLowerCase().includes('conflict');
+
+            if (isLoggedOut) {
                 console.log('⚠️ Waa lagaa saaray WhatsApp (Mobile-ka ayaa laga xiray). Shaqadii Bot-ka waa la joojinayaa...');
-                delete connectionStatus[storeId]; // 🟢 WAA LAGU DARAY: Ka saar xogta oo dhan
+                delete connectionStatus[storeId];
                 try { sock.ws.close(); } catch (err) {}
                 sock.ev.removeAllListeners();
-                
-                await clearStoreData(); // 🟢 CUSBOONAYSIIN: Ka tirtir xogta MongoDB
+                await clearStoreData();
                 console.log(`🗑️ Xogtii session-ka ee WhatsApp (${storeId}) waa laga tirtiray MongoDB.`);
+            } else if (isReplaced) {
+                // Socket cusub baa meel kale ka kacay — HA DIB U KICIN, tani waxay dhalin doontaa loop
+                console.log(`⚠️ [CONFLICT] Socket-kii (${storeId}) ayaa meel kale looga bedelay (replaced). Dib-u-kicin waa la joojiyay.`);
+                sock.ev.removeAllListeners();
+                if (connectionStatus[storeId]) connectionStatus[storeId].status = 'disconnected';
             } else if (stoppedBots[storeId]) {
                 console.log(`⏸️ Bot-ka (Store ${storeId}) waa la hakiyay. Galkii (Session) waa la xafiday.`);
-                if (connectionStatus[storeId]) connectionStatus[storeId].status = 'stopped'; // 🟢 WAA LAGU DARAY
-                sock.ev.removeAllListeners(); 
+                if (connectionStatus[storeId]) connectionStatus[storeId].status = 'stopped';
+                sock.ev.removeAllListeners();
             } else {
                 console.log('❌ Xiriirkii WhatsApp waa go\'ay. Dib ayaa loo kicinayaa 5 ilbiriqsi kadib...');
                 setTimeout(() => {
                     startWhatsApp(storeId, globalAddMessageToQueueFn).catch(err => console.error("Cilad dib-u-kicinta:", err));
-                }, 5000); 
+                }, 5000);
             }
         } else if (connection === 'open') {
             console.log(`✅ WhatsApp (Store ${storeId}) si guul leh ayuu u kacay!`);
@@ -267,6 +290,9 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     // 💬 DHEGEYSIGA FARIIMAHA IYO KU XIRIDA AI-GA
     // ==========================================
     sock.ev.on('messages.upsert', async (m) => {
+        // 🔇 ENCRYPTION ERROR GUARD: Qabo ciladadda groups-ka iyo decryption-ka
+        try {
+
         if (!activeSockets[storeId]) return;
 
         if (m.type !== 'notify') return;
@@ -381,6 +407,17 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                 } catch (queueError) {
                     console.error(`[WHATSAPP] Failed to add message to queue for store ${storeId}:`, queueError);
                 }
+            }
+        }
+
+        } catch (upsertError) {
+            // 🔇 Iska indho-tir ciladadda Groups-ka & Encryption-ka (No session found, unexpected character, etc.)
+            if (upsertError?.message?.includes('No session found') ||
+                upsertError?.message?.includes('decrypt') ||
+                upsertError?.message?.includes('unexpected non-whitespace')) {
+                // Fariimahan waxay ka yimaadaan groups-ka ama session cusub — si aamusnaan u gudbi
+            } else {
+                console.error(`[WHATSAPP] Cilad messages.upsert (${storeId}):`, upsertError.message);
             }
         }
     });

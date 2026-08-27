@@ -35,8 +35,8 @@ async function sendMessageFromHandler(storeId, recipient, text) {
   const sock = activeSockets[storeId];
   if (!sock) {
     console.error(`[WHATSAPP] No active socket for store ${storeId} to send reply.`);
-    // 🟢 WAA LAGU DARAY: Tuur cilad (throw error) si BullMQ uusan u lumin fariinta ee uu dib ugu tijaabiyo (retry)
-    throw new Error(`No active socket for store ${storeId}`);
+    // 🟢 WAA LAGA SAARAY: 'throw new Error' si BullMQ uusan fariinta si joogto ah isugu dayin inuu diro marka uusan bot-ku shaqaynayn
+    return;
   }
   await sock.sendMessage(recipient, { text });
 }
@@ -162,6 +162,52 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     // Kaydi Socket-kan si loo ogaado inuu shaqaynayo
     activeSockets[storeId] = sock; 
 
+    // 🟢 KUDAR CUSUB: Function hubinaya nambarka si loo wici karo marar kala duwan
+    const checkPhoneBinding = async () => {
+        if (!sock.user || !sock.user.id) return;
+        if (connectionStatus[storeId]?.phoneChecked) return;
+        
+        try {
+            const userPhone = sock.user.id.split(':')[0]; // Tusaale: 25261xxxxxxx
+            const db = await connectToMongo();
+            const bindingCollection = db.collection('store_whatsapp_bindings');
+            
+            // Soo hel haddii nambarkan uu horay ugu xirnaa dukaan kale
+            const existingBinding = await bindingCollection.findOne({ userPhone: userPhone });
+            
+            if (existingBinding) {
+                if (existingBinding.storeId !== storeId) {
+                    console.log(`⚠️ Nambarkaan (${userPhone}) horay ayaa looga diiwaangeliyay dukaan kale! Waa la joojinayaa si looga hortago abuurista account-yo badan.`);
+                    
+                    try { sock.ws.close(); } catch (err) {}
+                    sock.ev.removeAllListeners();
+                    await clearStoreData(); // Tirtir session-ka dukaankan cusub
+                    delete activeSockets[storeId];
+                    
+                    if (connectionStatus[storeId]) {
+                        connectionStatus[storeId].status = 'disconnected';
+                        connectionStatus[storeId].qr = '';
+                    }
+                    return; // Jooji socodsiinta
+                }
+            } else {
+                // Nambarka waligiis lama isticmaalin, ku xir dukaankan hadda
+                await bindingCollection.insertOne({
+                    storeId: storeId,
+                    userPhone: userPhone,
+                    boundAt: new Date()
+                });
+                console.log(`🔒 Nambarka WhatsApp (${userPhone}) si joogto ah ayaa loogu xiray dukaanka (${storeId}).`);
+            }
+            // 🟢 WAA LA HUBIYAY, dib dambe ha u hubin
+            if (connectionStatus[storeId]) {
+                connectionStatus[storeId].phoneChecked = true;
+            }
+        } catch (error) {
+            console.error("[WHATSAPP] Cilad hubinta nambarada horay loo diiwaangeliyay:", error);
+        }
+    };
+
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
@@ -202,44 +248,8 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
         } else if (connection === 'open') {
             console.log(`✅ WhatsApp (Store ${storeId}) si guul leh ayuu u kacay!`);
             
-            // 🟢 KUDAR CUSUB: Hubi in nambarkaan lala wadaagay dukaan kale (Ka hortagga abuurista account-yo badan)
-            try {
-                if (sock.user && sock.user.id) {
-                    const userPhone = sock.user.id.split(':')[0]; // Tusaale: 25261xxxxxxx
-                    const db = await connectToMongo();
-                    const bindingCollection = db.collection('store_whatsapp_bindings');
-                    
-                    // Soo hel haddii nambarkan uu horay ugu xirnaa dukaan kale (xitaa haddii session-kii la tirtiray)
-                    const existingBinding = await bindingCollection.findOne({ userPhone: userPhone });
-                    
-                    if (existingBinding) {
-                        if (existingBinding.storeId !== storeId) {
-                            console.log(`⚠️ Nambarkaan (${userPhone}) horay ayaa looga diiwaangeliyay dukaan kale! Waa la joojinayaa si looga hortago abuurista account-yo badan.`);
-                            
-                            try { sock.ws.close(); } catch (err) {}
-                            sock.ev.removeAllListeners();
-                            await clearStoreData(); // Tirtir session-ka dukaankan cusub
-                            delete activeSockets[storeId];
-                            
-                            if (connectionStatus[storeId]) {
-                                connectionStatus[storeId].status = 'disconnected';
-                                connectionStatus[storeId].qr = '';
-                            }
-                            return; // Jooji socodsiinta inta dhiman
-                        }
-                    } else {
-                        // Nambarka waligiis lama isticmaalin, ku xir dukaankan hadda
-                        await bindingCollection.insertOne({
-                            storeId: storeId,
-                            userPhone: userPhone,
-                            boundAt: new Date()
-                        });
-                        console.log(`🔒 Nambarka WhatsApp (${userPhone}) si joogto ah ayaa loogu xiray dukaanka (${storeId}).`);
-                    }
-                }
-            } catch (error) {
-                console.error("[WHATSAPP] Cilad hubinta nambarada horay loo diiwaangeliyay:", error);
-            }
+            // 🟢 WAA LAGA BEDDELAY: Hadda waxay u yeeraysaa function-ka kor ku xusan
+            await checkPhoneBinding();
 
             if (connectionStatus[storeId]) { // 🟢 WAA LAGU DARAY
                 connectionStatus[storeId].status = 'connected';
@@ -248,8 +258,9 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
         }
     });
 
-    sock.ev.on('creds.update', () => {
+    sock.ev.on('creds.update', async () => {
         saveCreds(); // 🟢 CUSBOONAYSIIN: Si toos ah u kaydi xogta MongoDB
+        await checkPhoneBinding(); // 🟢 KUDAR CUSUB: Sidoo kale hubi marka Credentials-ka la helo, waayo halkan ayuu Number-ku ku soo baxaa inta badan
     });
 
     // ==========================================

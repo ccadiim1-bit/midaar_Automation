@@ -207,25 +207,34 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                 if (sock.user && sock.user.id) {
                     const userPhone = sock.user.id.split(':')[0]; // Tusaale: 25261xxxxxxx
                     const db = await connectToMongo();
-                    const collection = db.collection('whatsapp_sessions');
+                    const bindingCollection = db.collection('store_whatsapp_bindings');
                     
-                    // Soo hel dhammaan session-yada kale ee leh nambarkaan
-                    const existingDocs = await collection.find({ "session.me.id": { $regex: `^${userPhone}` } }).toArray();
-                    const otherStores = existingDocs.filter(doc => !doc._id.startsWith(storeId));
-
-                    if (otherStores.length > 0) {
-                        console.log(`⚠️ Nambarkaan (${userPhone}) horay ayaa looga diiwaangeliyay dukaan kale! Waa la joojinayaa si looga hortago abuurista account-yo badan.`);
-                        
-                        try { sock.ws.close(); } catch (err) {}
-                        sock.ev.removeAllListeners();
-                        await clearStoreData(); // Tirtir session-ka dukaankan cusub
-                        delete activeSockets[storeId];
-                        
-                        if (connectionStatus[storeId]) {
-                            connectionStatus[storeId].status = 'disconnected';
-                            connectionStatus[storeId].qr = '';
+                    // Soo hel haddii nambarkan uu horay ugu xirnaa dukaan kale (xitaa haddii session-kii la tirtiray)
+                    const existingBinding = await bindingCollection.findOne({ userPhone: userPhone });
+                    
+                    if (existingBinding) {
+                        if (existingBinding.storeId !== storeId) {
+                            console.log(`⚠️ Nambarkaan (${userPhone}) horay ayaa looga diiwaangeliyay dukaan kale! Waa la joojinayaa si looga hortago abuurista account-yo badan.`);
+                            
+                            try { sock.ws.close(); } catch (err) {}
+                            sock.ev.removeAllListeners();
+                            await clearStoreData(); // Tirtir session-ka dukaankan cusub
+                            delete activeSockets[storeId];
+                            
+                            if (connectionStatus[storeId]) {
+                                connectionStatus[storeId].status = 'disconnected';
+                                connectionStatus[storeId].qr = '';
+                            }
+                            return; // Jooji socodsiinta inta dhiman
                         }
-                        return; // Jooji socodsiinta inta dhiman
+                    } else {
+                        // Nambarka waligiis lama isticmaalin, ku xir dukaankan hadda
+                        await bindingCollection.insertOne({
+                            storeId: storeId,
+                            userPhone: userPhone,
+                            boundAt: new Date()
+                        });
+                        console.log(`🔒 Nambarka WhatsApp (${userPhone}) si joogto ah ayaa loogu xiray dukaanka (${storeId}).`);
                     }
                 }
             } catch (error) {

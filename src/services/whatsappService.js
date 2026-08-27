@@ -144,15 +144,15 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
 
     console.log(`⏳ Waxaan isku xirayaa WhatsApp (Kaydka: MongoDB) - Store ID: ${storeId}...`);
 
-    connectionStatus[storeId] = { qr: '', status: 'connecting' }; // 🟢 WAA LAGU DARAY
+    connectionStatus[storeId] = { qr: '', status: 'connecting' };
+
+    // 🔒 FIX: Dhig startingBots.delete() hal try/finally weyn oo daboolaya DHAMMAAN koodka
+    // Si startingBots uusan si joogto ah u xidnayn xataa haddii qeyb kasta fashilmato
+    try {
 
     // 🟢 CUSBOONAYSIIN: Hadda waxaan isticmaalaynaa MongoDB halkii aan ka isticmaali lahayn faylasha
     let state, saveCreds, clearStoreData;
-    try {
-        ({ state, saveCreds, clearStoreData } = await useMongoDBAuthState(storeId));
-    } finally {
-        startingBots.delete(storeId); // Xidh albaabka had iyo jeer (success ama failure)
-    }
+    ({ state, saveCreds, clearStoreData } = await useMongoDBAuthState(storeId));
 
     // SOO JIID VERSION-KA UGU DAMBEEYAY EE WHATSAPP WEB
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -170,8 +170,11 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
         keepAliveIntervalMs: 25000,
-        logger // 🟢 WAA LAGU DARAY: U gudbi logger-ka Baileys
+        logger
     });
+
+    // ✅ Mutex waa la sifeeyay si guulaha ah — socket ayaa la sameeyay
+    startingBots.delete(storeId);
 
     // Kaydi Socket-kan si loo ogaado inuu shaqaynayo
     activeSockets[storeId] = sock; 
@@ -421,6 +424,20 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
             }
         }
     });
+
+    } catch (startError) {
+        // 🔒 FIX: Haddii qeyb kasta ee koodka kor ku xusan fashilmato,
+        // bot-ku si joogto ah uguma xidnaado — dib ayuu u bilaabi karaa
+        console.error(`[WHATSAPP] Cilad weyn ka dhacday bilaabista bot-ka (${storeId}):`, startError.message || startError);
+        delete activeSockets[storeId];
+        if (connectionStatus[storeId]) {
+            connectionStatus[storeId].status = 'disconnected';
+            connectionStatus[storeId].qr = '';
+        }
+    } finally {
+        // 🔒 GUARANTEE: Mutex waligeed waa la furi doonaa, xataa haddii cilad dhacdo
+        startingBots.delete(storeId);
+    }
 }
 
 function getStoreConnectionState(storeId) { // 🟢 WAA LAGU DARAY
@@ -506,7 +523,12 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
 }
 
 // 🟢 KUDAR CUSUB: Kici dhammaan bot-yada markii uu server-ku dib u bilowdo
-async function autoStartAllBots() {
+// 🔧 FIX 6: addMessageToQueueFn ayaa sidii parameter loo soo gudbinaayaa (ka hortagga circular dependency)
+async function autoStartAllBots(addMessageToQueueFn) {
+    if (!addMessageToQueueFn) {
+        console.error('❌ [autoStartAllBots] addMessageToQueueFn waa undefined! Bot-yada lama kici karo.');
+        return;
+    }
     console.log('🔄 Kicinta tooska ah ee dhammaan bot-yada (Auto-start)...');
     try {
         const db = await connectToMongo();
@@ -521,15 +543,12 @@ async function autoStartAllBots() {
         }
 
         console.log(`▶️ Waxaa la helay ${credsDocs.length} dukaan oo leh session. Waa la kicinayaa...`);
-        
-        // Soo jeedi queueService (Waxaan u isticmaalaynaa require-ka halkan si aysan u dhicin circular dependency)
-        const { addMessageToQueue: queueFn } = require('./queueService');
 
         for (const doc of credsDocs) {
             const storeId = doc._id.replace('_creds', '');
             console.log(`▶️ Kicinta tooska ah: Store ID -> ${storeId}`);
             
-            startWhatsApp(storeId, queueFn).catch(err => console.error(`Cilad kicinta tooska ah ee ${storeId}:`, err));
+            startWhatsApp(storeId, addMessageToQueueFn).catch(err => console.error(`Cilad kicinta tooska ah ee ${storeId}:`, err));
             
             // Sii yara naso si uusan server-ku u culeysmin marka uu mar qura kicinayo bot-yo badan
             await new Promise(resolve => setTimeout(resolve, 2000));

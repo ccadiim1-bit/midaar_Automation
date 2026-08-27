@@ -44,6 +44,11 @@ async function logAndIncrement(storeId, customerPhone, messageBody, responseBody
  * @param {string} messageBody - The text of the incoming message.
  */
 async function handleIncomingMessage(storeId, customerPhone, messageBody, imageData = null) {
+  // 🔒 FIX 3: Ka hortagga crash-ka "undefined.toLowerCase()" marka sawir la soo diro
+  // messageBody waxay noqon kartaa undefined ama null marka fariinta oo keliya sawir tahay
+  messageBody = messageBody || '';
+  imageData = imageData || null;
+
   const lowerCaseMessage = messageBody.toLowerCase().trim();
 
   // --- PRE-CHECK: Subscription Limit ---

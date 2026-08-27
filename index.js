@@ -35,10 +35,13 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/payments', paymentRoutes);
 
 const { autoStartAllBots } = require('./src/services/whatsappService.js');
+// \u2705 FIX 6: queueService halkan ka soo qaad (heerka sare) oo u gudbi function-ka autoStartAllBots
+// Tani waxay ka hortageysaa circular dependency-ga (whatsappService -> queueService -> messageHandlerService -> whatsappService)
+const { addMessageToQueue } = require('./src/services/queueService.js');
 
 // Server-ka halkan ayuu ka kacayaa waana inuu ugu dambeeyaa
 app.listen(PORT, async () => {
     console.log(`Bismillah! Nidaamku wuxuu ka shaqaynayaa: http://localhost:${PORT}`);
     // Kici dhammaan bot-yadii horay u diiwaangashanaa si aysan u sugin in qofku uu soo galo dashboard-kiisa
-    await autoStartAllBots();
+    await autoStartAllBots(addMessageToQueue);
 });

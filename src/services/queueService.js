@@ -4,8 +4,15 @@ const IORedis = require('ioredis');
 const messageHandlerService = require('./messageHandlerService');
 
 // Configure Redis connection. Ensure REDIS_URL is in your .env file.
-const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
+const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+const isTlsConnection = redisUrl.startsWith('rediss://');
+
+const connection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null, // Important for BullMQ
+  // \u2705 FIX 5a: TLS taageero \u2014 rediss:// wuxuu u baahan yahay tls: {} si sax ah
+  ...(isTlsConnection && { tls: {} }),
+  // \u2705 FIX 5b: enableOfflineQueue: false \u2014 si si dhaqso ah cilad loo garanaayo haddii Redis gooyo
+  enableOfflineQueue: false,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000); // Dib u xirida waxay qaadanaysaa ilaa 2 sekan
     return delay;

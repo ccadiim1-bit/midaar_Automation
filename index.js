@@ -34,7 +34,11 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/payments', paymentRoutes);
 
+const { autoStartAllBots } = require('./src/services/whatsappService.js');
+
 // Server-ka halkan ayuu ka kacayaa waana inuu ugu dambeeyaa
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Bismillah! Nidaamku wuxuu ka shaqaynayaa: http://localhost:${PORT}`);
+    // Kici dhammaan bot-yadii horay u diiwaangashanaa si aysan u sugin in qofku uu soo galo dashboard-kiisa
+    await autoStartAllBots();
 });

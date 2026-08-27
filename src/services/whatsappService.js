@@ -467,4 +467,40 @@ async function requestWhatsAppPairingCode(storeId, phoneNumber) {
         return null;
     }
 }
-module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, softRestartWhatsApp, requestWhatsAppPairingCode, sendMessageFromHandler };
+
+// 🟢 KUDAR CUSUB: Kici dhammaan bot-yada markii uu server-ku dib u bilowdo
+async function autoStartAllBots() {
+    console.log('🔄 Kicinta tooska ah ee dhammaan bot-yada (Auto-start)...');
+    try {
+        const db = await connectToMongo();
+        const collection = db.collection('whatsapp_sessions');
+        
+        // Hel dhammaan ID-yada dukaamada ee leh Credentials
+        const credsDocs = await collection.find({ _id: { $regex: /_creds$/ } }).toArray();
+        
+        if (credsDocs.length === 0) {
+            console.log('ℹ️ Ma jiraan bot-yo u baahan in la kiciyo.');
+            return;
+        }
+
+        console.log(`▶️ Waxaa la helay ${credsDocs.length} dukaan oo leh session. Waa la kicinayaa...`);
+        
+        // Soo jeedi queueService (Waxaan u isticmaalaynaa require-ka halkan si aysan u dhicin circular dependency)
+        const { addMessageToQueue: queueFn } = require('./queueService');
+
+        for (const doc of credsDocs) {
+            const storeId = doc._id.replace('_creds', '');
+            console.log(`▶️ Kicinta tooska ah: Store ID -> ${storeId}`);
+            
+            startWhatsApp(storeId, queueFn).catch(err => console.error(`Cilad kicinta tooska ah ee ${storeId}:`, err));
+            
+            // Sii yara naso si uusan server-ku u culeysmin marka uu mar qura kicinayo bot-yo badan
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        console.log('✅ Dhammaan bot-yadii diiwaangashanaa waa la kiciyay.');
+    } catch (error) {
+        console.error('❌ Cilad ka dhacday autoStartAllBots:', error);
+    }
+}
+
+module.exports = { startWhatsApp, getStoreConnectionState, stopWhatsApp, softRestartWhatsApp, requestWhatsAppPairingCode, sendMessageFromHandler, autoStartAllBots };

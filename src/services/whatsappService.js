@@ -336,6 +336,16 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                     // HUBINTA 1: Haddii uu Pro yahay, hubi in xirmadu aysan dhicin (waqti ahaan)
                     if (store.is_pro && endDate && now > endDate) {
                         console.log(`[WHATSAPP] Xirmadii Pro ee dukaanka ${storeId} way dhacday (waqtiga ayaa ka dhamaaday). Fariinta waa la iska indho-tiray.`);
+                        
+                        // Si rasmi ah uga dhig in limit-ka uu ka dhamaaday DB-ga
+                        await supabase
+                            .from('stores')
+                            .update({
+                                is_pro: false,
+                                monthly_message_count: store.message_limit
+                            })
+                            .eq('id', storeId);
+
                         continue; // Jooji fariinta
                     }
 

@@ -52,7 +52,7 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
         // 🟢 TASK 4: Fetch store subscription status
         const { data: storeStatus, error: statusError } = await supabase
             .from('stores')
-            .select('is_pro, monthly_message_count, message_limit, plan_type')
+            .select('is_pro, monthly_message_count, message_limit, plan_type, subscription_end_date')
             .eq('id', storeId)
             .single();
 
@@ -61,6 +61,22 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
             // Render with default/fallback values if status fetch fails
             const defaultStatus = { is_pro: false, monthly_message_count: 0, message_limit: 50, plan_type: 'free' };
             return res.send(dashboardPage(products || [], isBotConnected, defaultStatus));
+        }
+
+        // HUBI IN WAQTIGA PRO-GA UU DHAMAADAY
+        if (storeStatus && storeStatus.is_pro && storeStatus.subscription_end_date) {
+            const endDate = new Date(storeStatus.subscription_end_date);
+            const now = new Date();
+            if (now > endDate) {
+                storeStatus.is_pro = false;
+                storeStatus.monthly_message_count = storeStatus.message_limit; // Limit is exhausted
+                
+                // Cusbooneysii DB-ga si loo diiwaangeliyo in limit-ka uu dhamaaday
+                await supabase.from('stores').update({
+                    is_pro: false,
+                    monthly_message_count: storeStatus.message_limit
+                }).eq('id', storeId);
+            }
         }
 
         // U gudbi xaaladda bot-ka iyo xogta isdiiwaangelinta bogga

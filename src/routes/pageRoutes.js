@@ -63,19 +63,33 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
             return res.send(dashboardPage(products || [], isBotConnected, defaultStatus));
         }
 
-        // HUBI IN WAQTIGA PRO-GA UU DHAMAADAY
-        if (storeStatus && storeStatus.is_pro && storeStatus.subscription_end_date) {
-            const endDate = new Date(storeStatus.subscription_end_date);
-            const now = new Date();
-            if (now > endDate) {
+        // HUBI IN XIRMADU DHACDAY (Waqti ama Quota)
+        if (storeStatus && storeStatus.is_pro) {
+            let expired = false;
+            let reason = '';
+
+            // Hubinta 1: Waqtiga (30 maalmood) - Xirmad kasta
+            if (storeStatus.subscription_end_date) {
+                const endDate = new Date(storeStatus.subscription_end_date);
+                const now = new Date();
+                if (now > endDate) {
+                    expired = true;
+                    reason = 'Waqtiga 30-ka maalmood way dhammaadeen';
+                }
+            }
+
+            // Hubinta 2: Xadka fariimaha (Quota) - basic_100 iyo basic_1000 oo keliya (premium aan xad lahayn)
+            if (!expired && storeStatus.monthly_message_count >= storeStatus.message_limit) {
+                expired = true;
+                reason = `Xadkii fariimaha (${storeStatus.monthly_message_count}/${storeStatus.message_limit}) waa la gaaray`;
+            }
+
+            if (expired) {
+                console.log(`[PAGE] Xirmada dukaanka ${storeId} way dhacday: ${reason}`);
                 storeStatus.is_pro = false;
-                storeStatus.monthly_message_count = storeStatus.message_limit; // Limit is exhausted
-                
-                // Cusbooneysii DB-ga si loo diiwaangeliyo in limit-ka uu dhamaaday
-                await supabase.from('stores').update({
-                    is_pro: false,
-                    monthly_message_count: storeStatus.message_limit
-                }).eq('id', storeId);
+
+                // Cusbooneysii DB-ga si loo diiwaangeliyo in xirmadu dhacday
+                await supabase.from('stores').update({ is_pro: false }).eq('id', storeId);
             }
         }
 

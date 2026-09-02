@@ -316,11 +316,11 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                 processedMessages.delete(messageId);
             }, 5 * 60 * 1000); // 5 daqiiqo
 
-            // 🟢 CUSBOONAYSIIN: Hubi xadka fariimaha ka hor intaadan fariinta u dirin safka (queue)
+            // 🟢 CUSBOONAYSIIN: Hubi LABADABA xadka fariimaha iyo waqtiga ka hor intaadan fariinta u dirin safka
             try {
                 const { data: store, error } = await supabase
                     .from('stores')
-                    .select('is_pro, monthly_message_count, message_limit, subscription_end_date')
+                    .select('is_pro, monthly_message_count, message_limit, subscription_end_date, plan_type')
                     .eq('id', storeId)
                     .single();
 
@@ -333,25 +333,35 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                     const now = new Date();
                     const endDate = store.subscription_end_date ? new Date(store.subscription_end_date) : null;
 
-                    // HUBINTA 1: Haddii uu Pro yahay, hubi in xirmadu aysan dhicin (waqti ahaan)
+                    // HUBINTA 1: Xirmadu ma dhacday (waqti ahaan)? - Xirmad kasta waxay leedahay 30 maalmood
                     if (store.is_pro && endDate && now > endDate) {
-                        console.log(`[WHATSAPP] Xirmadii Pro ee dukaanka ${storeId} way dhacday (waqtiga ayaa ka dhamaaday). Fariinta waa la iska indho-tiray.`);
+                        console.log(`[WHATSAPP] ⏰ Xirmadii dukaanka ${storeId} (${store.plan_type}) way dhacday - 30-ka maalmood way dhammaadeen.`);
                         
-                        // Si rasmi ah uga dhig in limit-ka uu ka dhamaaday DB-ga
+                        // Si rasmi ah uga dhig DB-ga in xirmadu dhacday
                         await supabase
                             .from('stores')
-                            .update({
-                                is_pro: false,
-                                monthly_message_count: store.message_limit
-                            })
+                            .update({ is_pro: false })
                             .eq('id', storeId);
 
                         continue; // Jooji fariinta
                     }
 
-                    // HUBINTA 2: Hubi xadka fariimaha (Tirada) ee dhammaan noocyada xirmooyinka
-                    if (store.monthly_message_count >= store.message_limit) {
-                        console.log(`[WHATSAPP] Xadkii fariimaha (tirada) waa la gaaray dukaanka ${storeId}. Fariinta waa la iska indho-tiray.`);
+                    // HUBINTA 2: Hubi xadka fariimaha (Quota) - Premium waxay leedahay xad aad u badan
+                    if (store.is_pro && store.monthly_message_count >= store.message_limit) {
+                        console.log(`[WHATSAPP] 📊 Xadkii fariimaha (${store.plan_type}: ${store.monthly_message_count}/${store.message_limit}) waa la gaaray dukaanka ${storeId}.`);
+
+                        // Si rasmi ah uga dhig DB-ga in quota-ku dhamaaday
+                        await supabase
+                            .from('stores')
+                            .update({ is_pro: false })
+                            .eq('id', storeId);
+
+                        continue; // Jooji fariinta
+                    }
+
+                    // HUBINTA 3: Haddii uusan Pro ahayn, hubi free plan xadkiisa
+                    if (!store.is_pro && store.monthly_message_count >= store.message_limit) {
+                        console.log(`[WHATSAPP] 🚫 Free plan xadkiis waa la gaaray dukaanka ${storeId}.`);
                         continue; // Jooji fariinta
                     }
                 } else {

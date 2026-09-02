@@ -164,22 +164,22 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
 
         console.log(`[PAYMENT] ✅ Waa la helay dukaanka! ID: ${store.id}`);
         let planType = 'unknown';
-        const subscriptionEndDate = new Date();
         let messageLimit = 0;
+
+        // Xirmad kasta waxay leedahay 30 maalmood + xad fariin (labaduba wada shaqeeyaan)
+        const subscriptionEndDate = new Date();
+        subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 30); // 30 maalmood
 
         // Hubinta xirmada
         if (amount >= 4.90 && amount <= 5.00) {
-            planType = 'weekly';
-            subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 7);
-            messageLimit = 100; 
+            planType = 'basic_100';
+            messageLimit = 100;  // 100 fariin ama 30 maalmood (kuma horreeyo)
         } else if (amount >= 9.90 && amount <= 10.00) {
-            planType = 'monthly';
-            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
-            messageLimit = 1000; 
+            planType = 'basic_1000';
+            messageLimit = 1000; // 1,000 fariin ama 30 maalmood (kuma horreeyo)
         } else if (amount >= 99.90 && amount <= 100.00) {
             planType = 'premium';
-            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
-            messageLimit = 999999999; 
+            messageLimit = 999999999; // Aan xad lahayn, laakiin 30 maalmood
         } else {
             console.log(`[PAYMENT] Unsupported payment amount: ${amount}`);
             return res.status(200).send('Unsupported payment amount.');
@@ -201,7 +201,7 @@ router.post('/sms-webhook', verifySmsWebhook, async (req, res) => {
             is_pro: true,
             monthly_message_count: 0,
             plan_type: planType,
-            subscription_end_date: subscriptionEndDate.toISOString(),
+            subscription_end_date: subscriptionEndDate ? subscriptionEndDate.toISOString() : null,
             message_limit: messageLimit
         }).eq('id', store.id);
 

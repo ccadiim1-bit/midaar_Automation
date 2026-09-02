@@ -17,15 +17,39 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
         `;
 
     // 🟢 TASK 5: Create subscription status banner
-    let subscriptionBannerHTML = '';
-    const remainingMessages = message_limit - monthly_message_count;
+    const { subscription_end_date = null } = storeStatus;
+    const remainingMessages = Math.max(0, message_limit - monthly_message_count);
 
+    // Magaca xirmada si qurux badan loogu muujiyo
+    const planNames = {
+        'basic_100':  'Aasaasi ($4.99)',
+        'basic_1000': 'Dhexe ($9.99)',
+        'premium':    'Sare/VIP ($99.99)',
+        'free':       'Bilaash'
+    };
+    const planDisplayName = planNames[plan_type] || plan_type;
+
+    // Taariikhda dhammaadka xirmada
+    let endDateDisplay = '';
+    if (subscription_end_date) {
+        const endDate = new Date(subscription_end_date);
+        endDateDisplay = endDate.toLocaleDateString('so-SO', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    let subscriptionBannerHTML = '';
     if (is_pro) {
+        // Muuji xaalada xirmada la doonaayo
+        let statusLine = '';
+        if (plan_type === 'premium') {
+            statusLine = `<p class="text-sm mt-1">📨 Fariimo: <b class="text-white">Aan Xad Lahayn</b> &nbsp;|&nbsp; 📅 Dhammaadka: <b class="text-white">${endDateDisplay || 'N/A'}</b></p>`;
+        } else {
+            statusLine = `<p class="text-sm mt-1">📨 Fariimo: <b class="text-white">${remainingMessages}</b> oo haray &nbsp;|&nbsp; 📅 Dhammaadka: <b class="text-white">${endDateDisplay || 'N/A'}</b></p>`;
+        }
         subscriptionBannerHTML = `
             <div class="bg-green-900/30 text-green-300 border border-green-800 p-4 rounded-xl mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div class="text-center md:text-left flex-grow">
-                    <p class="font-bold">Xisaabtaadu waa Pro (${escapeHTML(plan_type)}) 🚀.</p>
-                    <p class="text-sm">Waxaa kuu haray <b class="text-white">${remainingMessages > 0 ? remainingMessages : 0}</b> fariimood oo kamid ah ${message_limit}-kaaga bishan.</p>
+                    <p class="font-bold">✅ Xirmadaadu waa: <span class="text-white">${escapeHTML(planDisplayName)}</span> 🚀</p>
+                    ${statusLine}
                 </div>
                 <button onclick="openPricingModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">Cusboonaysii Xirmada</button>
             </div>
@@ -34,15 +58,16 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
         subscriptionBannerHTML = `
             <div class="bg-yellow-900/50 text-yellow-300 border border-yellow-700 p-4 rounded-xl mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div class="text-center md:text-left flex-grow">
-                    <p class="font-bold">Digniin: Nooca bilaashka ah ayaa ku jiraa.</p>
-                    <p class="text-sm">Waxaa kuu haray <b class="text-white">${remainingMessages > 0 ? remainingMessages : 0}</b> fariimood oo kamid ah ${message_limit}-ka fariimood ee tijaabada ah.</p>
+                    <p class="font-bold">⚠️ Nooca bilaashka ah ayaa ku jiraa.</p>
+                    <p class="text-sm mt-1">📨 Fariimo: <b class="text-white">${remainingMessages}</b> oo haray oo kamid ah <b class="text-white">${message_limit}</b>-ka tijaabada ah.</p>
                 </div>
                 <button onclick="openPricingModal()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">
-                    Upgrade to Pro
+                    🚀 Upgrade to Pro
                 </button>
             </div>
         `;
     }
+
 
     // Halkan waxaan ku dhisaynaa liiska alaabta oo toos ah (Dynamic)
     let productsHTML = '';
@@ -245,41 +270,44 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                     
                     <div class="p-6 pb-8">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                            <!-- Weekly Plan -->
+                            <!-- Aasaasi Plan ($4.99) -->
                             <div class="pricing-card bg-[#140827] border border-purple-900/40 rounded-xl p-6 text-center flex flex-col transition-all duration-300 hover:border-purple-600/80">
-                                <h4 class="text-lg font-semibold text-purple-400">Xirmo Toddobaadle</h4>
+                                <h4 class="text-lg font-semibold text-purple-400">Xirmo Aasaasi</h4>
                                 <p class="text-4xl font-bold my-4 text-white">$4.99</p>
                                 <ul class="text-slate-400 text-sm space-y-2 flex-grow">
-                                    <li><b class="text-white">100</b> Fariimood</li>
+                                    <li>📨 <b class="text-white">100</b> Fariimood / Bil</li>
+                                    <li>📅 <b class="text-white">30 Maalmood</b></li>
+                                    <li class="text-xs text-slate-500">(Kuma horreyso midka dhammaada)</li>
                                     <li>Full AI Capabilities</li>
-                                    <li>7 Maalmood oo Adeeg ah</li>
                                 </ul>
                                 <button onclick="selectPlan(this, '4.99')" class="mt-6 bg-purple-600/50 hover:bg-purple-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
                             </div>
 
-                            <!-- Monthly Plan (Recommended) -->
+                            <!-- Dhexe Plan ($9.99) (Recommended) -->
                             <div class="pricing-card bg-[#140827] border-2 border-purple-500 rounded-xl p-6 text-center flex flex-col relative transform scale-105 shadow-lg shadow-purple-900/50">
                                 <span class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full">RECOMMENDED</span>
-                                <h4 class="text-lg font-semibold text-purple-300">Xirmo Bille</h4>
+                                <h4 class="text-lg font-semibold text-purple-300">Xirmo Dhexe</h4>
                                 <p class="text-4xl font-bold my-4 text-white">$9.99</p>
                                 <ul class="text-slate-300 text-sm space-y-2 flex-grow">
-                                    <li><b class="text-white">1,000</b> Fariimood</li>
+                                    <li>📨 <b class="text-white">1,000</b> Fariimood / Bil</li>
+                                    <li>📅 <b class="text-white">30 Maalmood</b></li>
+                                    <li class="text-xs text-slate-500">(Kuma horreyso midka dhammaada)</li>
                                     <li>Full AI Capabilities</li>
-                                    <li>30 Maalmood oo Adeeg ah</li>
                                 </ul>
                                 <button onclick="selectPlan(this, '9.99')" class="mt-6 bg-purple-600 hover:bg-purple-500 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
                             </div>
 
-                            <!-- Premium Plan -->
-                            <div class="pricing-card bg-[#140827] border border-purple-900/40 rounded-xl p-6 text-center flex flex-col transition-all duration-300 hover:border-purple-600/80">
-                                <h4 class="text-lg font-semibold text-purple-400">Xirmo Premium</h4>
+                            <!-- Sare/VIP Plan ($99.99) -->
+                            <div class="pricing-card bg-[#140827] border border-yellow-700/40 rounded-xl p-6 text-center flex flex-col transition-all duration-300 hover:border-yellow-500/80">
+                                <h4 class="text-lg font-semibold text-yellow-400">Xirmo Sare / VIP</h4>
                                 <p class="text-4xl font-bold my-4 text-white">$99.99</p>
                                 <ul class="text-slate-400 text-sm space-y-2 flex-grow">
-                                    <li>Fariimo <b class="text-white">Aan Xad Lahayn</b></li>
+                                    <li>📨 Fariimo <b class="text-white">Aan Xad Lahayn</b> (Unlimited)</li>
+                                    <li>📅 <b class="text-white">30 Maalmood</b> oo Adeeg ah</li>
                                     <li>Full AI Capabilities</li>
-                                    <li>30 Maalmood oo Adeeg ah</li>
+                                    <li class="text-yellow-400/80 text-xs">⭐ Ugu fiican ganacsiyada weyn</li>
                                 </ul>
-                                <button onclick="selectPlan(this, '99.99')" class="mt-6 bg-purple-600/50 hover:bg-purple-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
+                                <button onclick="selectPlan(this, '99.99')" class="mt-6 bg-yellow-600/70 hover:bg-yellow-600 text-white w-full py-2.5 rounded-lg font-semibold transition">Dooro Xirmadan</button>
                             </div>
                         </div>
 

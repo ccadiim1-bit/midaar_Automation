@@ -10,20 +10,28 @@ const preferredGeminiModels = [
     "gemini-1.5-flash-latest"
 ];
 
-// Helper to execute product search with fuzzy matching
+// Helper to execute product search with fuzzy matching and URL extraction
 async function executeProductSearch(storeId, query) {
     if (!query || query.trim() === '') return { message: 'Fadlan geli magac alaabeed.' };
 
-    const words = query.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 1);
-    const stopWords = ['waa', 'in', 'oo', 'ay', 'waxaan', 'rabaa', 'imisa', 'qiimaha', 'waaye', 'meeqa', 'fadlan', 'iibsanayaa', 'keena', 'ah', 'ee', 'iyo'];
-    let searchWords = words.filter(w => !stopWords.includes(w));
-    
-    if (searchWords.length === 0) {
-        // Fallback to original query if all words were stop words
-        searchWords = [query.trim()];
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const links = query.match(urlRegex);
+    let searchTerms = [];
+
+    if (links && links.length > 0) {
+        searchTerms = [links[0]];
+    } else {
+        const words = query.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 1);
+        const stopWords = ['waa', 'in', 'oo', 'ay', 'waxaan', 'rabaa', 'imisa', 'qiimaha', 'waaye', 'meeqa', 'fadlan', 'iibsanayaa', 'keena', 'ah', 'ee', 'iyo'];
+        searchTerms = words.filter(w => !stopWords.includes(w));
+        
+        if (searchTerms.length === 0) {
+            // Fallback to original query if all words were stop words
+            searchTerms = [query.trim()];
+        }
     }
 
-    const orConditions = searchWords.map(w => `product_name.ilike.%${w}%`).join(',');
+    const orConditions = searchTerms.map(term => `product_name.ilike.%${term}%,product_desc.ilike.%${term}%`).join(',');
 
     const { data: products, error } = await supabase
         .from('products')
@@ -44,8 +52,10 @@ async function executeProductSearch(storeId, query) {
     // Rank products by matches
     const rankedProducts = products.map(p => {
         let score = 0;
-        searchWords.forEach(w => {
-            if (p.product_name.toLowerCase().includes(w.toLowerCase())) score++;
+        searchTerms.forEach(term => {
+            const termLower = term.toLowerCase();
+            if (p.product_name.toLowerCase().includes(termLower)) score += 2;
+            if (p.product_desc && p.product_desc.toLowerCase().includes(termLower)) score += 1;
         });
         return { ...p, score };
     }).sort((a, b) => b.score - a.score).slice(0, 5); // top 5

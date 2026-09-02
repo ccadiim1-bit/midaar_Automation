@@ -10,14 +10,27 @@ const preferredGeminiModels = [
     "gemini-1.5-flash-latest"
 ];
 
-// Helper to execute product search
+// Helper to execute product search with fuzzy matching
 async function executeProductSearch(storeId, query) {
+    if (!query || query.trim() === '') return { message: 'Fadlan geli magac alaabeed.' };
+
+    const words = query.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 1);
+    const stopWords = ['waa', 'in', 'oo', 'ay', 'waxaan', 'rabaa', 'imisa', 'qiimaha', 'waaye', 'meeqa', 'fadlan', 'iibsanayaa', 'keena', 'ah', 'ee', 'iyo'];
+    let searchWords = words.filter(w => !stopWords.includes(w));
+    
+    if (searchWords.length === 0) {
+        // Fallback to original query if all words were stop words
+        searchWords = [query.trim()];
+    }
+
+    const orConditions = searchWords.map(w => `product_name.ilike.%${w}%`).join(',');
+
     const { data: products, error } = await supabase
         .from('products')
         .select('product_name, product_price, product_desc')
         .eq('store_id', storeId)
-        .ilike('product_name', `%${query}%`)
-        .limit(5); // limit to save tokens
+        .or(orConditions)
+        .limit(10); // get up to 10 matching products
 
     if (error) {
         console.error('❌ Cilad raadinta alaabta (DB):', error);
@@ -28,7 +41,20 @@ async function executeProductSearch(storeId, query) {
         return { message: `Alaabta '${query}' lagama helin dukaanka.` };
     }
 
-    return { products };
+    // Rank products by matches
+    const rankedProducts = products.map(p => {
+        let score = 0;
+        searchWords.forEach(w => {
+            if (p.product_name.toLowerCase().includes(w.toLowerCase())) score++;
+        });
+        return { ...p, score };
+    }).sort((a, b) => b.score - a.score).slice(0, 5); // top 5
+
+    return { products: rankedProducts.map(p => ({
+        product_name: p.product_name,
+        product_price: p.product_price,
+        product_desc: p.product_desc
+    })) };
 }
 
 // Tool definitions for Gemini
@@ -92,7 +118,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
         📍 Goobta: ${storeInfo?.location || 'Lama garanayo'}
         ⏰ Saacadaha: ${storeInfo?.work_hours || 'Lama garanayo'}
 
-        MUHIIM: Haddii qofka macmiilka ahi uu wax ka weydiiyo alaab, Khasab Waa Inaad isticmaashid tool-ka 'search_store_products' si aad uga soo raadiso database-ka. Ha dhihin 'ma hayno' ama 'ma garanayo' ilaa aad tool-ka isticmaashid!
+        MUHIIM: Inta badan xogta alaabta waxaa laguugu soo dari doonaa fariinta macmiilka. Kaliya isticmaal tool-ka 'search_store_products' haddii macmiilku sawir soo diro oo aad rabto inaad magaca alaabta sawirka ku jirta ka raadiso database-ka. Ha isticmaalin tool-ka haddii xogta laguugu soo daray fariinta!
 
         🖼️ FAHAMIDA SAWIRADA (IMAGE UNDERSTANDING) - MUHIIM AADKA:
         - Haddii macmiilku soo diro SAWIR, waa inaad si toos ah u gartaa sawirka oo aad u sheegto waxa ku muuqda.
@@ -129,7 +155,17 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             formattedHistory.shift();
         }
 
-        const effectiveUserPrompt = userPrompt || (imageData ? "Fadlan eeg sawirkan oo ii sheeg waxa ku muuqda, ka dib raadi alaabta dukaanka." : "");
+        let effectiveUserPrompt = userPrompt ? userPrompt.trim() : "";
+        
+        if (effectiveUserPrompt) {
+            const searchResult = await executeProductSearch(storeId, effectiveUserPrompt);
+            if (searchResult.products && searchResult.products.length > 0) {
+                const productsText = searchResult.products.map(p => `- ${p.product_name}: $${p.product_price} (Faahfaahin: ${p.product_desc || 'ma leh'})`).join('\n');
+                effectiveUserPrompt = `Macmiilka wuxuu yiri '${userPrompt}'. Waxaan database-ka ka helnay alaabtan:\n${productsText}\n\nU diyaari macmiilka jawaab kooban oo soo jiidasho leh.`;
+            }
+        } else if (imageData) {
+            effectiveUserPrompt = "Fadlan eeg sawirkan oo ii sheeg waxa ku muuqda, ka dib raadi alaabta dukaanka.";
+        }
 
         let aiResponseText = null;
 

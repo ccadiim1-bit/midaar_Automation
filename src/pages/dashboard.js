@@ -217,8 +217,12 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                 ${addProductSectionHTML}
 
                 <div class="bg-[#140827] rounded-2xl border border-purple-900/40 shadow-lg overflow-hidden">
-                    <div class="p-6 border-b border-purple-900/40">
+                    <div class="p-6 border-b border-purple-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <h3 class="text-lg font-semibold text-white">Liiska Alaabta Keydsan</h3>
+                        <div class="relative w-full sm:w-72">
+                            <input type="text" id="searchInput" onkeyup="filterProducts()" placeholder="Baar alaabta (magac, qiimo...)" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 pl-10">
+                            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse min-w-[600px]">
@@ -230,7 +234,7 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
                                     <th class="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-purple-900/40 text-right">Maamul</th>
                                 </tr>
                             </thead>
-                            <tbody class="text-sm text-slate-200">
+                            <tbody id="productsTableBody" class="text-sm text-slate-200">
                                 ${productsHTML}
                             </tbody>
                         </table>
@@ -398,6 +402,31 @@ function dashboardPage(products = [], isBotConnected = false, storeStatus = {}) 
             </div>
 
             <script>
+                function filterProducts() {
+                    const input = document.getElementById('searchInput');
+                    const filter = input.value.toLowerCase();
+                    const tbody = document.getElementById('productsTableBody');
+                    if (!tbody) return;
+                    const tr = tbody.getElementsByTagName('tr');
+
+                    for (let i = 0; i < tr.length; i++) {
+                        const tds = tr[i].getElementsByTagName('td');
+                        if (tds.length === 1) continue; // Skip empty state row
+                        
+                        let matchFound = false;
+                        for (let j = 0; j < 3; j++) { // Check name, price, description
+                            if (tds[j]) {
+                                const txtValue = tds[j].textContent || tds[j].innerText;
+                                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                                    matchFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                        tr[i].style.display = matchFound ? '' : 'none';
+                    }
+                }
+
                 const pricingModal = document.getElementById('pricingModal');
                 const modalContent = document.getElementById('modalContent');
                 // New global state variables

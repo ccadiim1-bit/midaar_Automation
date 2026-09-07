@@ -226,13 +226,14 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
     };
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            console.log(`🔄 QR Code cusub ayaa loo soo saaray dukaanka ID: ${storeId}`);
-            connectionStatus[storeId].qr = await QRCode.toDataURL(qr); // 🟢 WAA LAGU DARAY
-            connectionStatus[storeId].status = 'qr_ready'; // 🟢 WAA LAGU DARAY
-        }
+        try {
+            const { connection, lastDisconnect, qr } = update;
+            
+            if (qr) {
+                console.log(`🔄 QR Code cusub ayaa loo soo saaray dukaanka ID: ${storeId}`);
+                connectionStatus[storeId].qr = await QRCode.toDataURL(qr); // 🟢 WAA LAGU DARAY
+                connectionStatus[storeId].status = 'qr_ready'; // 🟢 WAA LAGU DARAY
+            }
         
         if (connection === 'close') {
             delete activeSockets[storeId]; 
@@ -282,11 +283,18 @@ async function startWhatsApp(storeId, addMessageToQueueFn) { // Accept addMessag
                 connectionStatus[storeId].qr = '';
             }
         }
+        } catch (updateError) {
+            console.error("[WHATSAPP] Cilad connection.update:", updateError);
+        }
     });
 
     sock.ev.on('creds.update', async () => {
-        saveCreds(); // 🟢 CUSBOONAYSIIN: Si toos ah u kaydi xogta MongoDB
-        await checkPhoneBinding(); // 🟢 KUDAR CUSUB: Sidoo kale hubi marka Credentials-ka la helo, waayo halkan ayuu Number-ku ku soo baxaa inta badan
+        try {
+            await saveCreds(); // 🟢 CUSBOONAYSIIN: Si toos ah u kaydi xogta MongoDB
+            await checkPhoneBinding(); // 🟢 KUDAR CUSUB: Sidoo kale hubi marka Credentials-ka la helo, waayo halkan ayuu Number-ku ku soo baxaa inta badan
+        } catch (err) {
+            console.error("[WHATSAPP] Cilad creds.update:", err);
+        }
     });
 
     // ==========================================

@@ -249,7 +249,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             if (openRouterApiKey) {
                 // 🖼️ Modelasha vision-ka (saxan) ee OpenRouter
                 const openRouterModelsToTry = [
-                    "google/gemini-3.7-flash",       // ✅ FIX: Magaca saxda ah
+                    "google/gemini-2.5-flash-lite",       // ✅ FIX: Magaca saxda ah
                     "google/gemini-2.0-flash-001",   // Backup Google model
                     'anthropic/claude-3-haiku'       // Back up vision model
                 ];

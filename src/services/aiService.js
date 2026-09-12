@@ -24,7 +24,7 @@ async function executeProductSearch(storeId, query) {
         const words = query.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 1);
         const stopWords = ['waa', 'in', 'oo', 'ay', 'waxaan', 'rabaa', 'imisa', 'qiimaha', 'waaye', 'meeqa', 'fadlan', 'iibsanayaa', 'keena', 'ah', 'ee', 'iyo'];
         searchTerms = words.filter(w => !stopWords.includes(w));
-        
+
         if (searchTerms.length === 0) {
             // Fallback to original query if all words were stop words
             searchTerms = [query.trim()];
@@ -60,11 +60,13 @@ async function executeProductSearch(storeId, query) {
         return { ...p, score };
     }).sort((a, b) => b.score - a.score).slice(0, 5); // top 5
 
-    return { products: rankedProducts.map(p => ({
-        product_name: p.product_name,
-        product_price: p.product_price,
-        product_desc: p.product_desc
-    })) };
+    return {
+        products: rankedProducts.map(p => ({
+            product_name: p.product_name,
+            product_price: p.product_price,
+            product_desc: p.product_desc
+        }))
+    };
 }
 
 // Tool definitions for Gemini
@@ -166,7 +168,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
         }
 
         let effectiveUserPrompt = userPrompt ? userPrompt.trim() : "";
-        
+
         if (effectiveUserPrompt) {
             const searchResult = await executeProductSearch(storeId, effectiveUserPrompt);
             if (searchResult.products && searchResult.products.length > 0) {
@@ -247,7 +249,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             if (openRouterApiKey) {
                 // 🖼️ Modelasha vision-ka (saxan) ee OpenRouter
                 const openRouterModelsToTry = [
-                    "google/gemini-2.5-flash",       // ✅ FIX: Magaca saxda ah
+                    "google/gemini-3.7-flash",       // ✅ FIX: Magaca saxda ah
                     "google/gemini-2.0-flash-001",   // Backup Google model
                     'anthropic/claude-3-haiku'       // Back up vision model
                 ];

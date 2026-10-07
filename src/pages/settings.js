@@ -49,67 +49,19 @@ function settingsPage(storeData = {}) {
                     <p class="text-slate-400 mt-1 text-sm md:text-base">Halkan ku xir WhatsApp-ka oo AI-ga ku bar xogta aasaasiga ah.</p>
                 </header>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <form action="/api/settings/save" method="POST" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
                     <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg flex flex-col">
                         <h3 class="text-white font-semibold mb-4 text-center">Xiriirka WhatsApp</h3>
                         
-                        <div class="mb-6">
-                            <label class="block text-slate-400 text-sm mb-2">Dooro Qaabka Isku-xirka</label>
-                            <select id="apiSelector" onchange="toggleApiView()" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 cursor-pointer">
-                                <option value="baileys">📱 QR Code (Baileys - Scan)</option>
-                                <option value="pairing">🔢 Pairing Code (Nambar)</option>
-                                <option value="greenapi">🟢 Green API (Cloud Instance)</option>
-                                <option value="meta">🌐 Meta API (Official WhatsApp)</option>
-                            </select>
-                        </div>
-
-                        <!-- TAB 1: Baileys (QR Code) -->
-                        <div id="baileys-section" class="flex flex-col items-center border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center mb-4" id="qr-instruction">Taabo badhanka hoose si aad u soo saarto QR Code-ka dhabta ah, kadibna iskaan garee.</p>
-                            
-                            <div class="bg-white p-2 rounded-xl mb-4 w-48 h-48 flex items-center justify-center relative overflow-hidden" id="qr-container">
-                                <div id="qr-loading" class="text-slate-800 text-sm text-center font-bold">
-                                    QR Code ma jiro<br><span class="text-xs font-normal">Taabo 'Soo saar QR'</span>
-                                </div>
-                                <img id="qr-image" src="" alt="QR Code" class="w-full h-full object-contain hidden">
-                            </div>
-
-                            <button type="button" onclick="requestNewQR()" id="btn-scan" class="bg-purple-600 hover:bg-purple-500 text-white w-full py-3 rounded-xl font-semibold transition text-sm">
-                                🔄 Soo saar QR Code
-                            </button>
-                            <button type="button" onclick="disconnectWhatsApp()" id="btn-disconnect" class="hidden mt-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30 w-full py-2.5 rounded-xl font-semibold transition text-sm">
-                                🔌 Ka gooy xiriirka & QR cusub hel
-                            </button>
-                        </div>
-
-                        <!-- 🟢 TAB CUSUB: Pairing Code -->
-                        <div id="pairing-section" class="hidden flex-col items-center border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center mb-4">Geli nambarka WhatsApp-ka ee aad rabto inaad ka dhigto Bot. (Tusaale: 252615000000)</p>
-                            
-                            <input type="text" id="pairing-number" placeholder="25261..." class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm mb-4 text-center tracking-widest font-bold">
-
-                            <div id="pairing-code-display" class="hidden bg-white p-3 rounded-xl mb-4 w-full flex items-center justify-center border-2 border-indigo-500 border-dashed">
-                                <span id="the-code" class="text-3xl font-black text-slate-800 tracking-[0.2em]"></span>
-                            </div>
-
-                            <p id="pairing-status" class="text-emerald-400 text-xs text-center mb-4 hidden">✅ Koodhka hoos ka muuqda ku qor WhatsApp-kaaga (Linked Devices > Link with phone number).</p>
-
-                            <button type="button" onclick="requestPairingCode()" id="btn-pairing" class="bg-indigo-600 hover:bg-indigo-500 text-white w-full py-3 rounded-xl font-semibold transition text-sm">
-                                🔢 Codso Koodhka Isku-xirka
-                            </button>
-                        </div>
-
-                        <!-- TAB 3 & 4: API kale -->
-                        <div id="greenapi-section" class="hidden border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR iyo Pairing.</p>
-                        </div>
-                        <div id="meta-section" class="hidden border-t border-purple-900/40 pt-4">
-                            <p class="text-slate-400 text-xs text-center">Tani hadda ma shaqaynayso, waxaan diiradda saaraynaa Baileys QR iyo Pairing.</p>
+                        <div class="mb-4">
+                            <label class="block text-slate-400 text-sm mb-2">WhatsApp API Key & Phone ID</label>
+                            <input type="text" name="whatsappAPI" placeholder="Tusaale: 123456789|EAAD..." value="${escapeHTML(storeData.whatsappAPI || '')}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <p class="text-[10px] text-slate-500 mt-2 text-center">Geli Phone Number ID-gaaga iyo Token-ka rasmiga ah oo u dhexeeyo calaamadan (|).</p>
                         </div>
                     </div>
 
-                    <form action="/api/settings/save" method="POST" class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg lg:col-span-2">
+                    <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg lg:col-span-2">
                         <h3 class="text-white font-semibold mb-4 flex items-center gap-2">🧠 Xogta Dukaanka & Goobta</h3>
                         
                         <div class="space-y-4">
@@ -155,7 +107,8 @@ function settingsPage(storeData = {}) {
                                 💾 Keydi Xogta Settings-ka
                             </button>
                         </div>
-                    </form>
+                    </div>
+                </form>
                 </div>
             </main>
 
@@ -224,232 +177,8 @@ function settingsPage(storeData = {}) {
 
                 // Count on page load (in case there is existing content)
                 document.addEventListener('DOMContentLoaded', countWords);
-                function toggleApiView() {
-                    const selector = document.getElementById('apiSelector').value;
-                    document.getElementById('baileys-section').style.display = selector === 'baileys' ? 'flex' : 'none';
-                    document.getElementById('pairing-section').style.display = selector === 'pairing' ? 'flex' : 'none';
-                    document.getElementById('greenapi-section').style.display = selector === 'greenapi' ? 'block' : 'none';
-                    document.getElementById('meta-section').style.display = selector === 'meta' ? 'block' : 'none';
-                }
+                // JS logic for settings
 
-                let qrInterval;
-
-                document.addEventListener("DOMContentLoaded", () => {
-                    // Kaliya hubi haddii horay u xiran yahay - ha bilaabinin si automatic ah
-                    fetch('/api/whatsapp/qr')
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.qrImage === 'connected') {
-                                showConnectedState();
-                            } else if (data.qrImage) {
-                                // QR ayaa horay u soo baxay, soo bandhig
-                                showQRState(data.qrImage);
-                                qrInterval = setInterval(checkQRStatus, 2000);
-                            }
-                            // Haddii disconnected yahay, ha samayn waxba - u sug macaamiilka inuu badhanka taabo
-                        })
-                        .catch(err => console.log("Lama hubin karin xaaladda QR-ka."));
-                });
-
-                function showConnectedState() {
-                    const loadingText = document.getElementById('qr-loading');
-                    const qrImage = document.getElementById('qr-image');
-                    const btn = document.getElementById('btn-scan');
-                    const instruction = document.getElementById('qr-instruction');
-                    const btnDisconnect = document.getElementById('btn-disconnect');
-
-                    if(instruction) instruction.innerHTML = "Bot-kaagu wuxuu diyaar u yahay inuu u adeego macaamiishaada.";
-                    
-                    if(loadingText) {
-                        loadingText.innerHTML = "✅<br>WhatsApp waa<br>ku xiran yahay!";
-                        loadingText.classList.remove('hidden', 'text-slate-800');
-                        loadingText.classList.add('text-emerald-600', 'text-lg', 'font-black');
-                    }
-                    if(qrImage) qrImage.classList.add('hidden');
-                    
-                    if(btn) {
-                        btn.innerText = "Is-xirka waa guuleystay 🎉";
-                        btn.disabled = true; 
-                        btn.classList.replace('bg-purple-600', 'bg-emerald-600');
-                        btn.classList.replace('hover:bg-purple-500', 'hover:bg-emerald-600');
-                        btn.classList.add('cursor-not-allowed', 'opacity-80');
-                    }
-
-                    // Muuji badhanka 'Disconnect & QR cusub'
-                    if(btnDisconnect) btnDisconnect.classList.remove('hidden');
-
-                    // Sidoo kale bedel badhanka Pairing Code-ka haddii la isku xiray
-                    const btnPairing = document.getElementById('btn-pairing');
-                    if(btnPairing) {
-                        btnPairing.innerText = "Waa ku xiran yahay 🎉";
-                        btnPairing.disabled = true;
-                        btnPairing.classList.replace('bg-indigo-600', 'bg-emerald-600');
-                        btnPairing.classList.replace('hover:bg-indigo-500', 'hover:bg-emerald-600');
-                        btnPairing.classList.add('cursor-not-allowed', 'opacity-80');
-                    }
-                }
-
-                function showQRState(qrImgSrc) {
-                    const loadingText = document.getElementById('qr-loading');
-                    const qrImage = document.getElementById('qr-image');
-                    const btn = document.getElementById('btn-scan');
-
-                    qrImage.src = qrImgSrc;
-                    qrImage.classList.remove('hidden');
-                    loadingText.classList.add('hidden');
-                    
-                    btn.innerText = "QR Waa Diyaar - Iskaan garee!";
-                    btn.disabled = true;
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-                }
-
-                // Marka qofku rabo QR cusub si toos ah
-                function requestNewQR() {
-                    const loadingText = document.getElementById('qr-loading');
-                    const qrImage = document.getElementById('qr-image');
-                    const btn = document.getElementById('btn-scan');
-
-                    loadingText.innerHTML = "Wuxuu soo saarayaa QR... ⏳";
-                    loadingText.classList.remove('hidden');
-                    qrImage.classList.add('hidden');
-                    btn.innerText = "Fadlan sug...";
-                    btn.disabled = true;
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-                    fetch('/api/whatsapp/start', { method: 'POST' })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.status === 'started') {
-                                qrInterval = setInterval(checkQRStatus, 2000);
-                            }
-                        })
-                        .catch(err => {
-                            loadingText.innerHTML = "❌ Cilad ayaa dhacday";
-                            btn.innerText = "Dib u isku day";
-                            btn.disabled = false;
-                            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        });
-                }
-
-                // Marka qofku rabo inuu gooyo xiriirka hore oo QR cusub helo
-                function disconnectWhatsApp() {
-                    const loadingText = document.getElementById('qr-loading');
-                    const qrImage = document.getElementById('qr-image');
-                    const btn = document.getElementById('btn-scan');
-                    const btnDisconnect = document.getElementById('btn-disconnect');
-                    const instruction = document.getElementById('qr-instruction');
-
-                    if (!confirm('Ma hubtaa inaad xiriirka goysid oo QR cusub heshid?')) return;
-
-                    btnDisconnect.innerText = 'Wuxuu joojinaayaa... ⏳';
-                    btnDisconnect.disabled = true;
-
-                    fetch('/api/whatsapp/restart', { method: 'POST' })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.status === 'restarting') {
-                                // Dib u deji UI-ga si loo sugo QR cusub
-                                loadingText.innerHTML = 'Wuxuu dib u bilaabayaa... ⏳';
-                                loadingText.classList.remove('hidden', 'text-emerald-600', 'text-lg', 'font-black');
-                                loadingText.classList.add('text-slate-800', 'text-sm');
-                                qrImage.classList.add('hidden');
-
-                                btn.innerText = 'Fadlan sug QR-ka...';
-                                btn.disabled = true;
-                                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-600');
-                                btn.classList.add('bg-purple-600', 'hover:bg-purple-500', 'opacity-50', 'cursor-not-allowed');
-
-                                btnDisconnect.classList.add('hidden');
-                                btnDisconnect.innerText = '🔌 Ka gooy xiriirka & QR cusub hel';
-                                btnDisconnect.disabled = false;
-
-                                if(instruction) instruction.innerHTML = 'Taabo badhanka hoose si aad u soo saarto QR Code-ka dhabta ah, kadibna iskaan garee.';
-
-                                // Bilow hubinta QR cusub
-                                clearInterval(qrInterval);
-                                setTimeout(() => {
-                                    qrInterval = setInterval(checkQRStatus, 2000);
-                                }, 2000);
-                            }
-                        })
-                        .catch(err => {
-                            btnDisconnect.innerText = '❌ Cilad - Dib u isku day';
-                            btnDisconnect.disabled = false;
-                        });
-                }
-
-                // Shaqadii hore (startQRScan) - la isticmaalay meelo kale
-                function startQRScan() {
-                    requestNewQR();
-                }
-
-                function checkQRStatus() {
-                    fetch('/api/whatsapp/qr')
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.qrImage === 'connected') {
-                                clearInterval(qrInterval); 
-                                showConnectedState();
-                            } else if (data.qrImage) {
-                                showQRState(data.qrImage);
-                            }
-                        });
-                }
-
-                // 🟢 SHAQADA CUSUB: JAVASCRIPT-KA SOO CODsanaya PAIRING CODE-KA
-                function requestPairingCode() {
-                    const phoneInput = document.getElementById('pairing-number').value;
-                    const btn = document.getElementById('btn-pairing');
-                    const codeDisplay = document.getElementById('pairing-code-display');
-                    const theCodeText = document.getElementById('the-code');
-                    const statusText = document.getElementById('pairing-status');
-
-                    if (!phoneInput) {
-                        alert("Fadlan gali nambarka WhatsApp-ka!");
-                        return;
-                    }
-
-                    btn.innerText = "Wuxuu raadinayaa koodhka... ⏳";
-                    btn.disabled = true;
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-                    fetch('/api/whatsapp/pair', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ phoneNumber: phoneInput })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        btn.innerText = "Dib u codso Koodh cusub";
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
-
-                        if (data.status === 'success' && data.code) {
-                            codeDisplay.classList.remove('hidden');
-                            statusText.classList.remove('hidden');
-                            
-                            // Koodhka ka dhig mid kala go'an si loo akhrin karo (Tusaale: ABCD-1234)
-                            let formattedCode = data.code;
-                            if(formattedCode.length === 8) {
-                                formattedCode = formattedCode.slice(0, 4) + '-' + formattedCode.slice(4);
-                            }
-                            theCodeText.innerText = formattedCode;
-
-                            // Bilow inuu hubiyo inuu xirmay (sida QR-ka oo kale)
-                            qrInterval = setInterval(checkQRStatus, 2000);
-                        } else {
-                            alert(data.error || "Lama soo saari karin koodhka. Hubi in bot-ku kacsan yahay.");
-                        }
-                    })
-                    .catch(err => {
-                        btn.innerText = "❌ Cilad - Dib u isku day";
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        alert("Cilad ayaa dhacday dhanka Server-ka.");
-                    });
-                }
             </script>
         </body>
         </html>

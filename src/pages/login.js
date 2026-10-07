@@ -86,7 +86,7 @@ function loginPage(errorMsg = '') {
                         <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
                             <h3 class="text-xl lg:text-2xl font-bold text-white flex items-center gap-3">
                                 <svg class="w-7 h-7 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-                                Hagaha Nidaamka
+                                Sida Uu Nidaamku U Shaqeeyo
                             </h3>
                             
                             <!-- Support Button -->
@@ -98,55 +98,40 @@ function loginPage(errorMsg = '') {
                             </a>
                         </div>
                         
-                        <div class="grid grid-cols-3 gap-3 md:gap-4">
-                            <!-- Video 1 -->
-                            <div class="flex flex-col gap-3 group">
-                                <div class="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-[#0b0314] shadow-[0_5px_15px_rgba(0,0,0,0.4)] border border-white/5 group-hover:border-indigo-500/50 transition-all duration-300">
-                                    <iframe 
-                                        src="https://www.youtube.com/embed/w2VFsYPMxUg" 
-                                        title="Sidee Whatsapp loogu xirtaa midaarAutomation"
-                                        class="absolute top-0 left-0 w-full h-full"
-                                        frameborder="0" 
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                        allowfullscreen>
-                                    </iframe>
-                                </div>
-                                <p class="text-xs font-semibold text-slate-300 leading-snug group-hover:text-white transition-colors">
-                                    Sidee Whatsapp loogu xirtaa midaarAutomation
+                        <div class="flex flex-col gap-4">
+                            <!-- Qaybta 1: Sharaxaada Nidaamka -->
+                            <div class="bg-indigo-900/20 border border-indigo-500/30 p-5 rounded-2xl relative overflow-hidden group transition-all hover:bg-indigo-900/30">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full -z-10 transition-transform duration-500 group-hover:scale-150"></div>
+                                <h4 class="text-white font-bold mb-2 flex items-center gap-2">
+                                    <span class="bg-indigo-500/20 text-indigo-400 text-xs px-2.5 py-1 rounded-md border border-indigo-500/30 font-black">1</span> 
+                                    Waa Maxay Midaar Automation?
+                                </h4>
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Midaar waa nidaam <b class="text-indigo-300">Sirdoon Macmal (AI)</b> ah oo ku xiran WhatsApp-kaaga. Wuxuu si toos ah ula hadlaa macaamiisha, fahmaa su'aalahooda, ka soo raadiyaa alaabaha database-ka (xataa isagoo sawirada aqoonsanaya), wuxuuna qaadaa dalabaadka (orders) isagoon u baahnayn faragelin bini'aadam.
                                 </p>
                             </div>
 
-                            <!-- Video 2 -->
-                            <div class="flex flex-col gap-3 group">
-                                <div class="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-[#0b0314] shadow-[0_5px_15px_rgba(0,0,0,0.4)] border border-white/5 group-hover:border-indigo-500/50 transition-all duration-300">
-                                    <iframe 
-                                        src="https://www.youtube.com/embed/sU8SXEMUlLs" 
-                                        title="Sidee alaab loogu daraa midaarautomation"
-                                        class="absolute top-0 left-0 w-full h-full"
-                                        frameborder="0" 
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                        allowfullscreen>
-                                    </iframe>
-                                </div>
-                                <p class="text-xs font-semibold text-slate-300 leading-snug group-hover:text-white transition-colors">
-                                    Sidee alaab loogu daraa midaarautomation
+                            <!-- Qaybta 2: Sida loo helo Meta API -->
+                            <div class="bg-blue-900/20 border border-blue-500/30 p-5 rounded-2xl relative overflow-hidden group transition-all hover:bg-blue-900/30">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full -z-10 transition-transform duration-500 group-hover:scale-150"></div>
+                                <h4 class="text-white font-bold mb-2 flex items-center gap-2">
+                                    <span class="bg-blue-500/20 text-blue-400 text-xs px-2.5 py-1 rounded-md border border-blue-500/30 font-black">2</span> 
+                                    Sida Loo Helo Meta API
+                                </h4>
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Si loo ilaaliyo sharciga WhatsApp, nidaamkan wuxuu si toos ah u isticmaalaa <b>WhatsApp Cloud API (Meta API)</b>. Si aad u hesho, tag <a href="https://developers.facebook.com" target="_blank" class="text-blue-400 hover:underline">developers.facebook.com</a>, sameyso App cusub, kuna dar qaybta "WhatsApp". Waa nidaam ammaan ah oo rasmi ah.
                                 </p>
                             </div>
 
-                            <!-- Video 3 -->
-                            <div class="flex flex-col gap-3 group">
-                                <div class="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-[#0b0314] shadow-[0_5px_15px_rgba(0,0,0,0.4)] border border-white/5 group-hover:border-indigo-500/50 transition-all duration-300">
-                                    <iframe 
-                                        src="https://www.youtube.com/embed/NTtBaseXg-w" 
-                                        title="Sidee xirmo loo iibsadaa midaarau"
-                                        class="absolute top-0 left-0 w-full h-full"
-                                        frameborder="0" 
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                        allowfullscreen>
-                                    </iframe>
-                                </div>
-                                <p class="text-xs font-semibold text-slate-300 leading-snug group-hover:text-white transition-colors">
-                                    Sidee xirmo loo iibsadaa midaarautomation
+                            <!-- Qaybta 3: Isku Xirka -->
+                            <div class="bg-purple-900/20 border border-purple-500/30 p-5 rounded-2xl relative overflow-hidden group transition-all hover:bg-purple-900/30">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-bl-full -z-10 transition-transform duration-500 group-hover:scale-150"></div>
+                                <h4 class="text-white font-bold mb-2 flex items-center gap-2">
+                                    <span class="bg-purple-500/20 text-purple-400 text-xs px-2.5 py-1 rounded-md border border-purple-500/30 font-black">3</span> 
+                                    Isku Xirka Nidaamka
+                                </h4>
+                                <p class="text-sm text-slate-300 leading-relaxed">
+                                    Markaad Meta App-ka samaysato, waxaa lagu siinayaa <b>Phone Number ID</b> iyo <b>Access Token</b>. Login garee halkan, tag qaybta <b>Settings</b>, ka dibna geli furayaashaas si uu nidaamka AI-ga durba ugu xirmo WhatsApp-kaaga oo uu shaqada u bilaabo.
                                 </p>
                             </div>
                         </div>

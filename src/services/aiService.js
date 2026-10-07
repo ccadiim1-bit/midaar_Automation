@@ -111,6 +111,7 @@ const openAiTools = [
 ];
 
 async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageData = null) {
+    console.log(`[AI] 🚀 generateAIResponse bilowday - Store: ${storeId}, Prompt: "${userPrompt ? userPrompt.substring(0, 60) : '[MALA]'}"`);
     try {
         const { data: storeInfo, error: storeError } = await supabase
             .from('stores')
@@ -122,6 +123,8 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
             console.error('❌ Cilad akhrinta Dukaanka:', storeError.message);
             return "Waan ka xunnahay, cilad ayaa ka dhacday dhanka kaydka.";
         }
+
+        console.log(`[AI] 🔑 Store gemini_key: ${storeInfo?.gemini_key ? 'Jiraa (' + storeInfo.gemini_key.substring(0,8) + '...)' : 'MALA (Laga shaqaynayaa OpenRouter/DeepSeek)'}`);
 
         const finalSystemPrompt = `
         ${storeInfo?.system_prompt || 'Waxaad tahay iibiye asluub leh oo matalaya dukaankan.'}
@@ -191,6 +194,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
 
         // --- TALLAABADA 1-AAD: Isku day furaha gaarka ah ee dukaanka (Store's API Key) ---
         if (storeInfo && storeInfo.gemini_key) {
+            console.log(`[AI] 🔑 TALLAABO 1: Dukaanka Gemini key-ga isticmaalaya...`);
             for (const modelName of preferredGeminiModels) {
                 try {
                     const genAI = new GoogleGenerativeAI(storeInfo.gemini_key);
@@ -246,6 +250,7 @@ async function generateAIResponse(storeId, userPrompt, chatHistory = [], imageDa
         // --- TALLAABADA 2-AAD: U gudub OpenRouter haddii kii dukaanku fashilmo ---
         if (!aiResponseText) {
             const openRouterApiKey = process.env.OPENROUTER_KEY_1;
+            console.log(`[AI] 🌐 TALLAABO 2: OpenRouter isticmaalaya. Key: ${openRouterApiKey ? openRouterApiKey.substring(0,15)+'...' : 'MALA - KHALAD!'}`);
             if (openRouterApiKey) {
                 // 🖼️ Modelasha vision-ka (saxan) ee OpenRouter
                 const openRouterModelsToTry = [

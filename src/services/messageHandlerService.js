@@ -51,6 +51,8 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
 
   const lowerCaseMessage = messageBody.toLowerCase().trim();
 
+  console.log(`[HANDLER] 🔄 Fariin la helay - Store: ${storeId}, Ka: ${customerPhone}, Qoraal: "${messageBody}", Sawir: ${imageData ? 'Haa' : 'Maya'}`);
+
   // --- PRE-CHECK: Subscription Limit ---
   const { data: store, error: storeError } = await supabase
     .from('stores')
@@ -59,23 +61,26 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
     .single();
 
   if (storeError || !store) {
-    console.error(`[HANDLER] Could not fetch store data for ID ${storeId}:`, storeError);
-    return; // Stop processing if store not found
+    console.error(`[HANDLER] ❌ Store data lama helin ID: ${storeId}`, storeError);
+    return;
   }
+
+  console.log(`[HANDLER] 📊 Store xogta: is_pro=${store.is_pro}, count=${store.monthly_message_count}/${store.message_limit}`);
 
   // Kaliya hubi salaanta iyo FAQ haddii aysan fariintu sawir lahayn
   if (!imageData) {
     // --- TIER 1: Greeting Check ---
     const greetings = ['hi', 'hello', 'salaam', 'slm', 'salam', 'is ka waran', 'iska waran', 'haye', 'asc', 'waryaa haye', 'saaxiib', '.'];
     if (greetings.some(g => lowerCaseMessage.startsWith(g))) {
+      console.log(`[HANDLER] 👋 TIER 1: Salaan la helay - ku jawaabaya greeting response`);
       const greetingResponse = store.greeting_message || "Salaam! Sideen kuu caawin karaa maanta?";
       await sendMessageFromHandler(storeId, customerPhone, greetingResponse);
       await logAndIncrement(storeId, customerPhone, messageBody, greetingResponse, 'greeting');
-      // console.log(`[HANDLER] Responded with a greeting to ${customerPhone} for store ${storeId}.`);
       return;
     }
 
     // --- TIER 2: FAQ Caching ---
+    console.log(`[HANDLER] 🔍 TIER 2: FAQ-yada la hubinayaa...`);
     const { data: faqs, error: faqError } = await supabase
       .from('store_faqs')
       .select('answer, keywords')
@@ -87,9 +92,9 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
       for (const faq of faqs) {
         const foundKeyword = faq.keywords.some(keyword => lowerCaseMessage.includes(keyword.toLowerCase()));
         if (foundKeyword) {
+          console.log(`[HANDLER] 📚 TIER 2: FAQ la helay - ku jawaabaya`);
           await sendMessageFromHandler(storeId, customerPhone, faq.answer);
           await logAndIncrement(storeId, customerPhone, messageBody, faq.answer, 'faq');
-          // console.log(`[HANDLER] Responded with a cached FAQ to ${customerPhone} for store ${storeId}.`);
           return;
         }
       }
@@ -109,12 +114,13 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
   }
 
   // --- TIER 3: AI Fallback ---
-  // console.log(`[HANDLER] No greeting or FAQ match. Falling back to AI for store ${storeId}.`);
+  console.log(`[HANDLER] 🤖 TIER 3: AI-ga loo gudbaynayaa fariinta...`);
   
   // Fetch chat history for the current user
   const chatHistoryForAI = userChatHistory[storeId][customerPhone];
 
   const aiResponse = await generateAIResponse(storeId, messageBody, chatHistoryForAI, imageData);
+  console.log(`[HANDLER] ✅ AI jawaab soo celisay: "${aiResponse ? aiResponse.substring(0, 80) : 'MALA'}..."`);
 
   // Add AI's response to history
   userChatHistory[storeId][customerPhone].push({ role: 'ai', text: aiResponse });
@@ -124,8 +130,8 @@ async function handleIncomingMessage(storeId, customerPhone, messageBody, imageD
   }
 
   await sendMessageFromHandler(storeId, customerPhone, aiResponse);
+  console.log(`[HANDLER] ✅ Fariinta AI waa loo diray: ${customerPhone}`);
   await logAndIncrement(storeId, customerPhone, messageBody, aiResponse, 'ai');
-  // console.log(`[HANDLER] Responded with AI to ${customerPhone} for store ${storeId}.`);
 }
 
 module.exports = { handleIncomingMessage };

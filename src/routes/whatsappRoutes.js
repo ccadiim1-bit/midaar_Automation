@@ -50,12 +50,23 @@ router.post('/webhook', async (req, res) => {
                 let from = msgInfo.from; 
                 let msg_body = msgInfo.text ? msgInfo.text.body : "";
 
+                console.log(`[WEBHOOK] 📩 Fariin cusub - Nooca: ${msgInfo.type}, Ka: ${from}, Phone_ID: ${phone_number_id}`);
+
                 // Map incoming Webhook to the correct store using the phone_id column
                 const { data: stores, error } = await supabase
                     .from('stores')
                     .select('id, whatsappapi, phone_id')
                     .not('phone_id', 'is', null)
                     .not('whatsappapi', 'is', null);
+
+                if (error) {
+                    console.error('[WEBHOOK] ❌ Supabase khalad (stores fetch):', error.message);
+                }
+
+                console.log(`[WEBHOOK] 🏪 Dukaannada la helay DB-ga: ${stores ? stores.length : 0}`);
+                if (stores) {
+                    stores.forEach(s => console.log(`  -> phone_id DB: "${s.phone_id}" | Webhook: "${phone_number_id}" | Isku mid: ${s.phone_id?.trim() === phone_number_id}`));
+                }
 
                 let storeId = null;
                 let token = null;
@@ -71,6 +82,7 @@ router.post('/webhook', async (req, res) => {
                 }
 
                 if (storeId) {
+                    console.log(`[WEBHOOK] ✅ Dukaanka la helay: ${storeId} - fariinta queue-da waa la gelinayaa`);
                     let imageBase64 = null;
                     if (msgInfo.type === 'image') {
                         const imageId = msgInfo.image.id;
@@ -89,9 +101,12 @@ router.post('/webhook', async (req, res) => {
                             messageBody: msg_body,
                             imageData: imageBase64
                         });
+                        console.log(`[WEBHOOK] ✅ Fariinta queue-da lagu daray: "${msg_body || '[sawir]'}"`);
+                    } else {
+                        console.warn(`[WEBHOOK] ⚠️ msg_body iyo imageBase64 labaduba waa banaan - fariin laguma darin queue-da.`);
                     }
                 } else {
-                    console.error("No store found matching the incoming WhatsApp phone_number_id.");
+                    console.error(`[WEBHOOK] ❌ Dukaanka lama helin phone_number_id: "${phone_number_id}" - Hubso Settings-ka phone_id!`);
                 }
             }
             res.sendStatus(200);

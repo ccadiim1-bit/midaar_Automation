@@ -94,6 +94,11 @@ async function autoStartAllBots(addMessageToQueueFn) {
     console.log("Meta WhatsApp API uses Webhooks. No bots to auto-start.");
 }
 
+// Alias needed by authRoutes.js on login - no-op with Meta API (webhook-based)
+async function startWhatsApp(storeId, addMessageToQueueFn) {
+    console.log(`[META API] Store ${storeId} uses Webhooks. No session to start.`);
+}
+
 function stopWhatsApp(storeId) {
     console.log("Stop requested, but Meta API uses webhooks.");
 }
@@ -109,6 +114,7 @@ function getStoreConnectionState(storeId) {
 module.exports = { 
     sendMessageFromHandler, 
     autoStartAllBots, 
+    startWhatsApp,
     stopWhatsApp, 
     softRestartWhatsApp, 
     getStoreConnectionState,

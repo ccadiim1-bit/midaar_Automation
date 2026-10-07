@@ -34,6 +34,11 @@ router.get('/webhook', (req, res) => {
 
 // Meta API Webhook Receiver
 router.post('/webhook', async (req, res) => {
+    console.log('\n=============================================');
+    console.log('[WEBHOOK RAW DATA] Garaacid cusub ayaa timid!');
+    console.log(JSON.stringify(req.body, null, 2));
+    console.log('=============================================\n');
+
     try {
         let body = req.body;
 

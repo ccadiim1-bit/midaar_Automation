@@ -1,7 +1,7 @@
 // src/routes/whatsappRoutes.js
 const express = require('express');
 const router = express.Router();
-const { addMessageToQueue } = require('../services/queueService'); 
+const messageHandlerService = require('../services/messageHandlerService'); 
 const { isLoggedIn } = require('../middleware/authMiddleware.js'); 
 const { getStoreConnectionState, downloadMetaMedia } = require('../services/whatsappService.js');
 const supabase = require('../config/supabaseClient'); 
@@ -43,6 +43,9 @@ router.post('/webhook', async (req, res) => {
         let body = req.body;
 
         if (body.object) {
+            // Sii Meta jawaab degdeg ah (200 OK) si aysan fariinta mar kale u soo dirin
+            res.status(200).send('EVENT_RECEIVED');
+
             if (
                 body.entry &&
                 body.entry[0].changes &&
@@ -100,21 +103,22 @@ router.post('/webhook', async (req, res) => {
                     }
 
                     if (msg_body || imageBase64) {
-                        await addMessageToQueue({
-                            storeId: storeId,
-                            customerPhone: from,
-                            messageBody: msg_body,
-                            imageData: imageBase64
-                        });
-                        console.log(`[WEBHOOK] ✅ Fariinta queue-da lagu daray: "${msg_body || '[sawir]'}"`);
+                        console.log(`[WEBHOOK] ✅ Fariinta loo dirayo AI handler: "${msg_body || '[sawir]'}"`);
+                        
+                        // Si toos ah u wac handler-ka adigoo ka saaraya Queue-ga (Redis) si uusan u xannibin haddii Redis go'an yahay.
+                        // Waan iska direynaa annagoo aan sugeynin (background processing).
+                        messageHandlerService.handleIncomingMessage(storeId, from, msg_body, imageBase64)
+                            .catch(err => {
+                                console.error(`[WEBHOOK] ❌ Khalad ka dhacay AI handler:`, err);
+                            });
+
                     } else {
-                        console.warn(`[WEBHOOK] ⚠️ msg_body iyo imageBase64 labaduba waa banaan - fariin laguma darin queue-da.`);
+                        console.warn(`[WEBHOOK] ⚠️ msg_body iyo imageBase64 labaduba waa banaan.`);
                     }
                 } else {
                     console.error(`[WEBHOOK] ❌ Dukaanka lama helin phone_number_id: "${phone_number_id}" - Hubso Settings-ka phone_id!`);
                 }
             }
-            res.sendStatus(200);
         } else {
             res.sendStatus(404);
         }

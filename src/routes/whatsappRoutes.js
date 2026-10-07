@@ -53,9 +53,9 @@ router.post('/webhook', async (req, res) => {
                 // Map incoming Webhook to the correct store using the phone_id column
                 const { data: stores, error } = await supabase
                     .from('stores')
-                    .select('id, whatsappAPI, phone_id')
+                    .select('id, whatsappapi, phone_id')
                     .not('phone_id', 'is', null)
-                    .not('whatsappAPI', 'is', null);
+                    .not('whatsappapi', 'is', null);
 
                 let storeId = null;
                 let token = null;
@@ -64,7 +64,7 @@ router.post('/webhook', async (req, res) => {
                     for (const store of stores) {
                         if (store.phone_id && store.phone_id.trim() === phone_number_id) {
                             storeId = store.id;
-                            token = store.whatsappAPI.trim();
+                            token = store.whatsappapi.trim();
                             break;
                         }
                     }

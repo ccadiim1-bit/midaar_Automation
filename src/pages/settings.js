@@ -62,7 +62,7 @@ function settingsPage(storeData = {}) {
 
                         <div class="mb-4">
                             <label class="block text-slate-400 text-sm mb-2">Access Token (WhatsApp API)</label>
-                            <input type="password" name="whatsappAPI" placeholder="EAAD..." value="${escapeHTML(storeData.whatsappAPI || '')}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <input type="password" name="whatsappAPI" placeholder="EAAD..." value="${escapeHTML(storeData.whatsappapi || '')}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
                             <p class="text-[10px] text-slate-500 mt-1.5">Permanent Token-ka rasmiga ah ee Meta API.</p>
                         </div>
 

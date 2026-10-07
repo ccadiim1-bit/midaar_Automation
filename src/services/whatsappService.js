@@ -4,17 +4,17 @@ const supabase = require('../config/supabaseClient');
 async function getWhatsappConfig(storeId) {
     const { data: store, error } = await supabase
         .from('stores')
-        .select('whatsappAPI, phone_id')
+        .select('whatsappapi, phone_id')
         .eq('id', storeId)
         .single();
     
-    if (error || !store || !store.whatsappAPI || !store.phone_id) {
+    if (error || !store || !store.whatsappapi || !store.phone_id) {
         throw new Error("WhatsApp Phone ID or Access Token not found. Please add them in Settings.");
     }
     
     return { 
         phoneId: store.phone_id.trim(), 
-        token: store.whatsappAPI.trim() 
+        token: store.whatsappapi.trim() 
     };
 }
 

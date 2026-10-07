@@ -50,10 +50,11 @@ router.post('/webhook', async (req, res) => {
                 let from = msgInfo.from; 
                 let msg_body = msgInfo.text ? msgInfo.text.body : "";
 
-                // Map incoming Webhook to the correct store using the WhatsApp API key
+                // Map incoming Webhook to the correct store using the phone_id column
                 const { data: stores, error } = await supabase
                     .from('stores')
-                    .select('id, whatsappAPI')
+                    .select('id, whatsappAPI, phone_id')
+                    .not('phone_id', 'is', null)
                     .not('whatsappAPI', 'is', null);
 
                 let storeId = null;
@@ -61,18 +62,9 @@ router.post('/webhook', async (req, res) => {
 
                 if (stores && stores.length > 0) {
                     for (const store of stores) {
-                        const apiString = store.whatsappAPI.trim();
-                        if (apiString.includes('|')) {
-                            const parts = apiString.split('|');
-                            if (parts[0] === phone_number_id) {
-                                storeId = store.id;
-                                token = parts[1];
-                                break;
-                            }
-                        } else {
-                            // If just token without phone ID, assume it's for this single store
+                        if (store.phone_id && store.phone_id.trim() === phone_number_id) {
                             storeId = store.id;
-                            token = apiString;
+                            token = store.whatsappAPI.trim();
                             break;
                         }
                     }

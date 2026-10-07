@@ -4,31 +4,18 @@ const supabase = require('../config/supabaseClient');
 async function getWhatsappConfig(storeId) {
     const { data: store, error } = await supabase
         .from('stores')
-        .select('whatsappAPI')
+        .select('whatsappAPI, phone_id')
         .eq('id', storeId)
         .single();
     
-    if (error || !store || !store.whatsappAPI) {
-        throw new Error("WhatsApp API token not found for store.");
+    if (error || !store || !store.whatsappAPI || !store.phone_id) {
+        throw new Error("WhatsApp Phone ID or Access Token not found. Please add them in Settings.");
     }
     
-    // We assume the user inputs "PhoneNumberID|AccessToken" or just "AccessToken"
-    // If they just input AccessToken, we need PhoneNumberID from env (or just fallback if possible, but Meta requires it).
-    const apiString = store.whatsappAPI.trim();
-    let phoneId = process.env.WHATSAPP_PHONE_ID;
-    let token = apiString;
-
-    if (apiString.includes('|')) {
-        const parts = apiString.split('|');
-        phoneId = parts[0];
-        token = parts[1];
-    }
-
-    if (!phoneId || !token) {
-        throw new Error("Missing phone ID or token. Format your API key as: PhoneID|Token in settings.");
-    }
-
-    return { phoneId, token };
+    return { 
+        phoneId: store.phone_id.trim(), 
+        token: store.whatsappAPI.trim() 
+    };
 }
 
 async function sendMessageFromHandler(storeId, recipient, text) {

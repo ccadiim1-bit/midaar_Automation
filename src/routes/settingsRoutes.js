@@ -8,7 +8,7 @@ router.use(isLoggedIn);
 
 // QABASHADA IYO KEYDINTA XOGTA MASKAXDA BOT-KA (SETTINGS) 
 router.post('/save', async (req, res) => {
-    const { gemini_key, location, work_hours, system_prompt, admin_number, delivery_numbers, whatsappAPI } = req.body;
+    const { gemini_key, location, work_hours, system_prompt, admin_number, delivery_numbers, whatsappAPI, phone_id } = req.body;
     const storeId = req.session.storeData.id;
 
     try {
@@ -21,7 +21,8 @@ router.post('/save', async (req, res) => {
                 system_prompt: system_prompt,
                 admin_number: admin_number,
                 delivery_numbers: delivery_numbers,
-                whatsappAPI: whatsappAPI
+                whatsappAPI: whatsappAPI,
+                phone_id: phone_id
             })
             .eq('id', storeId);
 

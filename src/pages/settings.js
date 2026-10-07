@@ -52,13 +52,23 @@ function settingsPage(storeData = {}) {
                 <form action="/api/settings/save" method="POST" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
                     <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg flex flex-col">
-                        <h3 class="text-white font-semibold mb-4 text-center">Xiriirka WhatsApp</h3>
+                        <h3 class="text-white font-semibold mb-4 text-center">🔗 Xiriirka WhatsApp</h3>
                         
                         <div class="mb-4">
-                            <label class="block text-slate-400 text-sm mb-2">WhatsApp API Key & Phone ID</label>
-                            <input type="text" name="whatsappAPI" placeholder="Tusaale: 123456789|EAAD..." value="${escapeHTML(storeData.whatsappAPI || '')}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
-                            <p class="text-[10px] text-slate-500 mt-2 text-center">Geli Phone Number ID-gaaga iyo Token-ka rasmiga ah oo u dhexeeyo calaamadan (|).</p>
+                            <label class="block text-slate-400 text-sm mb-2">Phone Number ID</label>
+                            <input type="text" name="phone_id" placeholder="Tusaale: 123456789012345" value="${escapeHTML(storeData.phone_id || '')}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <p class="text-[10px] text-slate-500 mt-1.5">Phone Number ID-ga aad ka heshay Meta Developers.</p>
                         </div>
+
+                        <div class="mb-4">
+                            <label class="block text-slate-400 text-sm mb-2">Access Token (WhatsApp API)</label>
+                            <input type="password" name="whatsappAPI" placeholder="EAAD..." value="${escapeHTML(storeData.whatsappAPI || '')}" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm">
+                            <p class="text-[10px] text-slate-500 mt-1.5">Permanent Token-ka rasmiga ah ee Meta API.</p>
+                        </div>
+
+                        <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" target="_blank" class="mt-auto text-center text-[11px] text-blue-400 hover:text-blue-300 hover:underline transition">
+                            📖 Sida loo helo Meta API →
+                        </a>
                     </div>
 
                     <div class="bg-[#140827] p-6 rounded-2xl border border-purple-900/40 shadow-lg lg:col-span-2">
@@ -96,10 +106,10 @@ function settingsPage(storeData = {}) {
                                 <label class="block text-slate-400 text-sm mb-1">Tilmaamaha Bot-ka (System Prompt)</label>
                                 <textarea id="system_prompt_ta" name="system_prompt" rows="5" oninput="countWords()" class="w-full bg-[#0b0314] border border-purple-900/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm resize-none transition-colors duration-200">${escapeHTML(storeData.system_prompt)}</textarea>
                                 <div class="flex items-center justify-between mt-1.5">
-                                    <p id="prompt_warning" class="text-xs hidden">⚠️ Xadka 200 xaraf ayaad gaadhtay!</p>
+                                    <p id="prompt_warning" class="text-xs hidden">⚠️ Xadka 900 xaraf ayaad gaadhtay!</p>
                                     <p class="text-[11px] text-slate-500 ml-auto">
                                         <span id="word_count" class="font-bold text-purple-400">0</span>
-                                        <span class="text-slate-500"> / 200 xaraf</span>
+                                        <span class="text-slate-500"> / 900 xaraf</span>
                                     </p>
                                 </div>
                             </div>
@@ -132,7 +142,7 @@ function settingsPage(storeData = {}) {
             </nav>
 
             <script>
-                const MAX_CHARS = 200;
+                const MAX_CHARS = 900;
 
                 function countWords() {
                     const ta = document.getElementById('system_prompt_ta');
@@ -149,14 +159,14 @@ function settingsPage(storeData = {}) {
                         ta.classList.add('border-red-500/70');
                         warningEl.classList.remove('hidden', 'text-yellow-400');
                         warningEl.classList.add('text-red-400');
-                        warningEl.textContent = '⛔ Xadka 200 xaraf waa la dhaafay! Fadlan yaree.';
-                    } else if (chars >= 180) {
+                        warningEl.textContent = '⛔ Xadka 900 xaraf waa la dhaafay! Fadlan yaree.';
+                    } else if (chars >= 800) {
                         countEl.className = 'font-bold text-yellow-400';
                         ta.classList.remove('border-red-500/70', 'border-purple-900/40');
                         ta.classList.add('border-yellow-500/60');
                         warningEl.classList.remove('hidden', 'text-red-400');
                         warningEl.classList.add('text-yellow-400');
-                        warningEl.textContent = '⚠️ Waad u dhawaatay xadka (200 xaraf)!';
+                        warningEl.textContent = '⚠️ Waad u dhawaatay xadka (900 xaraf)!';
                     } else {
                         countEl.className = 'font-bold text-purple-400';
                         ta.classList.remove('border-red-500/70', 'border-yellow-500/60');
@@ -169,7 +179,7 @@ function settingsPage(storeData = {}) {
                     const ta = document.getElementById('system_prompt_ta');
                     const chars = ta.value.length;
                     if (chars > MAX_CHARS) {
-                        alert('❌ System Prompt-ku wuxuu leeyahay ' + chars + ' xaraf. Fadlan u yaree 200 xaraf ama ka hooseeya.');
+                        alert('❌ System Prompt-ku wuxuu leeyahay ' + chars + ' xaraf. Fadlan u yaree 900 xaraf ama ka hooseeya.');
                         return false;
                     }
                     return true;
